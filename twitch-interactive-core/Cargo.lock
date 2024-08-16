@@ -3,5 +3,33 @@
 version = 3
 
 [[package]]
-name = "twitch-interactive-core"
+name = "libc"
+version = "0.2.156"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5f43f184355eefb8d17fc948dbecf6c13be3c141f20d834ae842193a448c72a"
+
+[[package]]
+name = "memmap2"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe751422e4a8caa417e13c3ea66452215d7d63e19e604f4980461212f3ae1322"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "mmap-wrapper"
+version = "0.9.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "241a56610706130b3a4eade9dfad54f2289a29b1ac7cc16f0f8face13e699063"
+dependencies = [
+ "memmap2",
+]
+
+[[package]]
+name = "twitch_interactive_core"
 version = "0.1.0"
+dependencies = [
+ "memmap2",
+ "mmap-wrapper",
+]
