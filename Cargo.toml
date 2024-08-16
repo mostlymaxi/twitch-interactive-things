@@ -1,0 +1,8 @@
+[package]
+name = "twitch-interactive-things"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+twitch_data_collector = { path = "twitch-data-collector" }
+twitch_interactive_core = { path = "twitch-interactive-core" }
