@@ -1,8 +1,5 @@
 use mmap_wrapper::MmapMutWrapper;
-use std::{
-    thread,
-    time::{Duration, SystemTime},
-};
+use std::time::{Duration, SystemTime};
 use twitch_eventsub::*;
 use twitch_interactive_core::*;
 
