@@ -3,6 +3,13 @@ name = "twitch-interactive-things"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "twitch-data-collector"
+
 [dependencies]
-twitch_data_collector = { path = "twitch-data-collector" }
 twitch_interactive_core = { path = "twitch-interactive-core" }
+dotenvy = "0.15.7"
+log = "0.4.22"
+memmap2 = "0.9.4"
+mmap-wrapper = "0.9.9"
+twitch_eventsub = "0.1.1"

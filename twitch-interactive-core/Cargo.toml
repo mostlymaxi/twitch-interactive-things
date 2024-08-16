@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 memmap2 = "0.9.4"
 mmap-wrapper = "0.9.9"
+twitch_eventsub = "0.1.1"
