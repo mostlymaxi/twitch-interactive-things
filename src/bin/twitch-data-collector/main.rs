@@ -7,6 +7,7 @@ struct TwitchDataCollector {
     api: TwitchEventSubApi,
     now: SystemTime,
     tail_msgs: Vec<Duration>,
+    tail_water_redeems: Vec<Duration>,
     latest_info_wrapper: MmapMutWrapper<LatestStreamInfo>,
 }
 
@@ -21,6 +22,7 @@ impl TwitchDataCollector {
             api,
             now: SystemTime::now(),
             tail_msgs: Vec::new(),
+            tail_water_redeems: Vec::new(),
             latest_info_wrapper,
         }
     }
@@ -32,9 +34,10 @@ impl TwitchDataCollector {
         loop {
             self.clean();
 
-            latest_info.msgs_per_15s = self.gabagoo(15);
-            latest_info.msgs_per_30s = self.gabagoo(30);
-            latest_info.msgs_per_60s = self.gabagoo(60);
+            latest_info.msgs_per_15s = self.count_msgs_window(15);
+            latest_info.msgs_per_30s = self.count_msgs_window(30);
+            latest_info.msgs_per_60s = self.count_msgs_window(60);
+            latest_info.waters_per_10m = self.count_waters_window(60 * 10);
 
             // could be its own function
             if latest_info.follow < self.now.elapsed().unwrap().as_secs().saturating_sub(60) {
@@ -76,6 +79,9 @@ impl TwitchDataCollector {
                     }
                     Event::PointsCustomRewardRedeem(redeem) => {
                         match redeem.reward.title.as_ref() {
+                            "mostlywater" => {
+                                self.tail_water_redeems.push(self.now.elapsed().unwrap())
+                            }
                             "mostlytrain" => latest_info.redeem = 1,
                             "mostlypride" => latest_info.redeem = 2,
                             "mostlymusic" => latest_info.redeem = 3,
@@ -96,8 +102,15 @@ impl TwitchDataCollector {
         }
     }
 
-    fn gabagoo(&self, n: u64) -> u64 {
+    fn count_msgs_window(&self, n: u64) -> u64 {
         self.tail_msgs
+            .iter()
+            .filter(|t| t.as_secs() > self.now.elapsed().unwrap().as_secs().saturating_sub(n))
+            .count() as u64
+    }
+
+    fn count_waters_window(&self, n: u64) -> u64 {
+        self.tail_water_redeems
             .iter()
             .filter(|t| t.as_secs() > self.now.elapsed().unwrap().as_secs().saturating_sub(n))
             .count() as u64
@@ -105,6 +118,16 @@ impl TwitchDataCollector {
 
     fn clean(&mut self) {
         self.tail_msgs.retain(|t| {
+            t.as_secs()
+                > self
+                    .now
+                    .elapsed()
+                    .unwrap()
+                    .as_secs()
+                    .saturating_sub(60 * 30)
+        });
+
+        self.tail_water_redeems.retain(|t| {
             t.as_secs()
                 > self
                     .now
