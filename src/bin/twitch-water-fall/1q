@@ -1,0 +1,26 @@
+use std::io::Write;
+use std::process::{Command, Stdio};
+use twitch_interactive_core::*;
+
+fn main() {
+    let latest_info_wrapper = LatestStreamInfo::new("/tmp/strim-mmap-test.bin");
+
+    let mut c = Command::new("cvlc")
+        .arg("./waterfall-in-the-mountains_nature-sound-161925.mp3")
+        .arg("-R")
+        .arg("-I")
+        .arg("rc")
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+
+    let mut c_in = c.stdin.take().unwrap();
+
+    // The sound plays in a separate audio thread,
+    // so we need to keep the main thread alive while it's playing.
+    std::thread::sleep(std::time::Duration::from_secs(5));
+
+    c_in.write_all("volume 10\n".as_bytes());
+
+    std::thread::sleep(std::time::Duration::from_secs(5));
+}

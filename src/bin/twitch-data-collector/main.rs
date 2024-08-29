@@ -86,6 +86,7 @@ impl TwitchDataCollector {
                             "mostlypride" => latest_info.redeem = 2,
                             "mostlymusic" => latest_info.redeem = 3,
                             "mostlypackets" => latest_info.redeem = 4,
+                            "mostlycpu" => latest_info.redeem = 5,
                             _ => {}
                         }
 
