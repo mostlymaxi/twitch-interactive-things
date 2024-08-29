@@ -1,0 +1,23 @@
+[00:00:00.000] (727ae8580880) INFO   Starting websocket client.
+[00:00:00.101] (727ae8580880) INFO   started mostlybot
+[00:00:00.105] (727ae84006c0) INFO   Subscribing to events!
+[00:00:00.105] (727ae84006c0) INFO   Running curl command with:
+[00:00:00.105] (727ae84006c0) INFO       url: https://api.twitch.tv/helix/eventsub/subscriptions
+[00:00:00.550] (727ae84006c0) INFO   Running curl command with:
+[00:00:00.550] (727ae84006c0) INFO       url: https://api.twitch.tv/helix/eventsub/subscriptions
+[00:00:00.764] (727ae84006c0) INFO   Running curl command with:
+[00:00:00.764] (727ae84006c0) INFO       url: https://api.twitch.tv/helix/eventsub/subscriptions
+[00:00:00.980] (727ae84006c0) INFO   Running curl command with:
+[00:00:00.980] (727ae84006c0) INFO       url: https://api.twitch.tv/helix/eventsub/subscriptions
+[00:00:01.140] (727ae84006c0) INFO   Running curl command with:
+[00:00:01.140] (727ae84006c0) INFO       url: https://api.twitch.tv/helix/eventsub/subscriptions
+[00:00:01.324] (727ae84006c0) INFO   Running curl command with:
+[00:00:01.324] (727ae84006c0) INFO       url: https://api.twitch.tv/helix/eventsub/subscriptions
+[00:00:01.508] (727ae84006c0) INFO   Running curl command with:
+[00:00:01.508] (727ae84006c0) INFO       url: https://api.twitch.tv/helix/eventsub/subscriptions
+[00:00:01.742] (727ae84006c0) INFO   Running curl command with:
+[00:00:01.742] (727ae84006c0) INFO       url: https://api.twitch.tv/helix/eventsub/subscriptions
+[00:00:01.884] (727ae84006c0) INFO   Running curl command with:
+[00:00:01.885] (727ae84006c0) INFO       url: https://api.twitch.tv/helix/eventsub/subscriptions
+[00:00:02.116] (727ae84006c0) INFO   Running curl command with:
+[00:00:02.116] (727ae84006c0) INFO       url: https://api.twitch.tv/helix/eventsub/subscriptions
