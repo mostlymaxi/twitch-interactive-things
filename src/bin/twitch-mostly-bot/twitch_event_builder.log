@@ -1,0 +1,9 @@
+[00:00:00.000] (727ae8580880) INFO   Running curl command with:
+[00:00:00.000] (727ae8580880) INFO       url: https://id.twitch.tv/oauth2/validate
+[00:00:00.427] (727ae8580880) INFO   Token requires refresing, debug: "invalid access token"
+[00:00:00.427] (727ae8580880) WARN   Token requires refreshing return!
+[00:00:00.427] (727ae8580880) INFO   Running curl command with:
+[00:00:00.427] (727ae8580880) INFO       url: https://id.twitch.tv/oauth2/token
+[00:00:00.996] (727ae8580880) INFO   Generated new keys as 401 was returned!
+[00:00:00.996] (727ae8580880) INFO   Running curl command with:
+[00:00:00.996] (727ae8580880) INFO       url: https://id.twitch.tv/oauth2/validate
