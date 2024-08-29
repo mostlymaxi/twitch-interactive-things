@@ -63,6 +63,12 @@ impl RedeemHandler {
                 c.args(["--default_widget_type", "net"]);
                 c
             }
+            5 => {
+                let mut c = Command::new("btm");
+                c.arg("-e");
+                c.args(["--default_widget_type", "cpu"]);
+                c
+            }
             _ => Command::new("cava"),
         };
 
