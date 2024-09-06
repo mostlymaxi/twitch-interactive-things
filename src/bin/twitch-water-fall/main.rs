@@ -34,8 +34,8 @@ fn main() {
     let mut volume: u8;
 
     let mut waters: f64;
-    let max_waters: f64 = 100.0;
-    let water_scaling = 2.55;
+    let max_waters: f64 = 40.0;
+    let water_scaling = 6.375;
 
     while running.load(Ordering::Relaxed) {
         waters = max_waters.min(latest_info.waters_per_10m as f64);
