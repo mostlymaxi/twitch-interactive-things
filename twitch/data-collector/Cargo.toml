@@ -1,0 +1,7 @@
+[package]
+name = "data-collector"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+twitch_eventsub = "0.1.2"
