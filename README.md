@@ -1,4 +1,4 @@
-# Twitch Interactive Things (T.I.T.S)
+# Twitch Interactive Things (T.I.Ts)
 
 ### Twitch Bot
 - has access to twitch api
