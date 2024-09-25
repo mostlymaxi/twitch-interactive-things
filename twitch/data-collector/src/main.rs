@@ -52,7 +52,7 @@ fn main() {
     let mut franz_topics = HashMap::new();
 
     for topic in ["chat", "follow", "raid", "redeem"] {
-        let mut sock = TcpStream::connect("localhost:8085").unwrap();
+        let mut sock = TcpStream::connect("137.66.27.20:8085").unwrap();
         sock.write_all(b"0\n").unwrap();
         sock.write_all(topic.as_bytes()).unwrap();
         sock.write_all(b"\n").unwrap();

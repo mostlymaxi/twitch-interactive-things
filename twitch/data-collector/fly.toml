@@ -1,0 +1,25 @@
+# fly.toml app configuration file generated for tits-data-collector on 2024-09-25T16:53:05-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'tits-data-collector'
+primary_region = 'iad'
+
+[build]
+
+[env]
+PORT = '8080'
+
+[[services]]
+internal_port = 8080
+protocol = "tcp"
+auto_stop_machines = "stop"
+auto_start_machines = true
+min_machines_running = 0
+
+
+[[vm]]
+memory = '512mb'
+cpu_kind = 'shared'
+cpus = 1

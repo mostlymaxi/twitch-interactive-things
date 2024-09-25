@@ -1,5 +1,5 @@
 [package]
-name = "tits-data-collector"
+name = "data-collector"
 version = "0.1.0"
 edition = "2021"
 
