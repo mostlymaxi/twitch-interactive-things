@@ -16,7 +16,7 @@ internal_port = 8080
 protocol = "tcp"
 auto_stop_machines = "stop"
 auto_start_machines = true
-min_machines_running = 0
+min_machines_running = 1
 
 
 [[vm]]
