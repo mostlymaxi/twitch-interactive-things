@@ -10,6 +10,7 @@ primary_region = 'iad'
 
 [env]
 PORT = '8080'
+RUST_LOG = 'trace'
 
 [[services]]
 internal_port = 8080
