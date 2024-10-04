@@ -49,7 +49,8 @@ fn init_twitch_client() -> TwitchEventSubApi {
 
 const MAX_RETRIES: usize = 5;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
     let mut current_retries = 0;
@@ -58,12 +59,11 @@ fn main() {
     let mut franz_topics = HashMap::new();
 
     for topic in ["chat", "follow", "raid", "redeem"] {
-        let mut sock = TcpStream::connect("tits.franz.mostlymaxi.com:8085").unwrap();
+        let p = franz_client::FranzProducer::new("tits.franz.mostlymaxi.com:8085", topic)
+            .await
+            .unwrap();
 
-        sock.write_all(b"0\n").unwrap();
-        sock.write_all(topic.as_bytes()).unwrap();
-        sock.write_all(b"\n").unwrap();
-        franz_topics.insert(topic.to_string(), sock);
+        franz_topics.insert(topic.to_string(), p);
     }
 
     'outer: loop {
@@ -97,64 +97,59 @@ fn main() {
 
             match event {
                 Event::ChatMessage(m) => {
-                    let mut msg = serde_json::to_string(&m).unwrap();
+                    let msg = serde_json::to_string(&m).unwrap();
                     log::trace!("{msg}");
-                    msg.push('\n');
-                    let msg = msg.as_bytes();
 
                     franz_topics
                         .get_mut("chat")
                         .unwrap()
-                        .write_all(msg)
+                        .send(msg)
+                        .await
                         .unwrap();
                 }
                 Event::Follow(m) => {
-                    let mut msg = serde_json::to_string(&m).unwrap();
+                    let msg = serde_json::to_string(&m).unwrap();
                     log::trace!("{msg}");
-                    msg.push('\n');
-                    let msg = msg.as_bytes();
 
                     franz_topics
                         .get_mut("follow")
                         .unwrap()
-                        .write_all(msg)
+                        .send(msg)
+                        .await
                         .unwrap();
                 }
                 Event::Raid(m) => {
-                    let mut msg = serde_json::to_string(&m).unwrap();
+                    let msg = serde_json::to_string(&m).unwrap();
                     log::trace!("{msg}");
-                    msg.push('\n');
-                    let msg = msg.as_bytes();
 
                     franz_topics
                         .get_mut("raid")
                         .unwrap()
-                        .write_all(msg)
+                        .send(msg)
+                        .await
                         .unwrap();
                 }
                 Event::PointsCustomRewardRedeem(m) => {
-                    let mut msg = serde_json::to_string(&m).unwrap();
+                    let msg = serde_json::to_string(&m).unwrap();
                     log::trace!("{msg}");
-                    msg.push('\n');
-                    let msg = msg.as_bytes();
 
                     franz_topics
                         .get_mut("redeem")
                         .unwrap()
-                        .write_all(msg)
+                        .send(msg)
+                        .await
                         .unwrap();
                 }
 
                 Event::ChannelPointsAutoRewardRedeem(m) => {
-                    let mut msg = serde_json::to_string(&m).unwrap();
+                    let msg = serde_json::to_string(&m).unwrap();
                     log::trace!("{msg}");
-                    msg.push('\n');
-                    let msg = msg.as_bytes();
 
                     franz_topics
                         .get_mut("redeem")
                         .unwrap()
-                        .write_all(msg)
+                        .send(msg)
+                        .await
                         .unwrap();
                 }
                 _ => {}
