@@ -7,7 +7,7 @@ app = 'tits-franz-server'
 primary_region = 'iad'
 
 [env]
-RUST_LOG = 'info'
+RUST_LOG = 'trace'
 
 [build]
 
