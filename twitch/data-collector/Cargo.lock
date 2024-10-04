@@ -441,9 +441,9 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
 name = "franz-client"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eae7ad3cfd8890bb0b856fb7d0fcddf80823ad6141cef6245b8f148b5ee52fc6"
+checksum = "83a18f654cb97ee7cbdbdd033bbe8a25a129d3bab4a4d99368f7d72546894b7b"
 dependencies = [
  "futures",
  "thiserror",

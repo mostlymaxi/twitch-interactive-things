@@ -1,10 +1,4 @@
-use std::{
-    collections::HashMap,
-    io::Write,
-    net::{IpAddr, TcpStream, ToSocketAddrs},
-    thread::sleep,
-    time::Duration,
-};
+use std::{collections::HashMap, thread::sleep, time::Duration};
 use twitch_eventsub::*;
 
 // 1. read data from twitch api
