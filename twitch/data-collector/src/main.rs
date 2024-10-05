@@ -77,7 +77,7 @@ async fn main() {
                         break 'outer;
                     }
                     current_retries += 1;
-                    sleep(Duration::from_secs(10));
+                    sleep(Duration::from_secs(1));
                     continue;
                 }
                 ResponseType::Event(e) => e,
@@ -92,44 +92,44 @@ async fn main() {
             match event {
                 Event::ChatMessage(m) => {
                     let msg = serde_json::to_string(&m).unwrap();
-                    log::trace!("{msg}");
+                    log::debug!("{msg}");
 
                     franz_topics
                         .get_mut("chat")
-                        .unwrap()
+                        .expect("chat topic exists")
                         .send(msg)
                         .await
                         .unwrap();
                 }
                 Event::Follow(m) => {
                     let msg = serde_json::to_string(&m).unwrap();
-                    log::trace!("{msg}");
+                    log::debug!("{msg}");
 
                     franz_topics
                         .get_mut("follow")
-                        .unwrap()
+                        .expect("follow topic exists")
                         .send(msg)
                         .await
                         .unwrap();
                 }
                 Event::Raid(m) => {
                     let msg = serde_json::to_string(&m).unwrap();
-                    log::trace!("{msg}");
+                    log::debug!("{msg}");
 
                     franz_topics
                         .get_mut("raid")
-                        .unwrap()
+                        .expect("raid topic exists")
                         .send(msg)
                         .await
                         .unwrap();
                 }
                 Event::PointsCustomRewardRedeem(m) => {
                     let msg = serde_json::to_string(&m).unwrap();
-                    log::trace!("{msg}");
+                    log::debug!("{msg}");
 
                     franz_topics
                         .get_mut("redeem")
-                        .unwrap()
+                        .expect("redeem topic exists")
                         .send(msg)
                         .await
                         .unwrap();
@@ -137,11 +137,11 @@ async fn main() {
 
                 Event::ChannelPointsAutoRewardRedeem(m) => {
                     let msg = serde_json::to_string(&m).unwrap();
-                    log::trace!("{msg}");
+                    log::debug!("{msg}");
 
                     franz_topics
                         .get_mut("redeem")
-                        .unwrap()
+                        .expect("redeem topic exists")
                         .send(msg)
                         .await
                         .unwrap();
