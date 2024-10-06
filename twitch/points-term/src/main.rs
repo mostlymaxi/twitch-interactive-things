@@ -19,6 +19,8 @@ enum CommandRedeem {
     MostlyKeyboard,
     MostlyStfu,
     MostlyMario,
+    MostlyNeo,
+    MostlyRedpill,
 }
 
 impl From<CommandRedeem> for Command {
@@ -43,7 +45,7 @@ impl From<CommandRedeem> for Command {
                 c
             }
             CommandRedeem::MostlyMusic => Command::new("cava"),
-            CommandRedeem::MostlyWater => Command::new("asciiquarium"),
+            CommandRedeem::MostlyWater => Command::new("asciifish"),
             CommandRedeem::MostlyStretch => {
                 let mut c = Command::new("cbonsai");
                 c.arg("-li");
@@ -56,6 +58,8 @@ impl From<CommandRedeem> for Command {
             }
             CommandRedeem::MostlyKeyboard => Command::new("genact"),
             CommandRedeem::MostlyMario => Command::new("pipes.sh"),
+            CommandRedeem::MostlyNeo => Command::new("cmatrix"),
+            CommandRedeem::MostlyRedpill => Command::new("cmatrix"),
         }
     }
 }
