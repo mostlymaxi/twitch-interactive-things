@@ -12,8 +12,8 @@ fn init_commands() -> HashMap<String, Rc<RefCell<dyn ChatCommand>>> {
     let mut h: HashMap<String, Rc<RefCell<dyn ChatCommand>>> = HashMap::new();
 
     // this gonna get macro-ified!!! :D
-    let cmd = Rc::new(RefCell::new(mostlygnu::MostlyGnu::new()));
-    for name in mostlygnu::MostlyGnu::names() {
+    let cmd = Rc::new(RefCell::new(mostlypasta::MostlyPasta::new()));
+    for name in mostlypasta::MostlyPasta::names() {
         h.insert(name.to_owned(), cmd.clone());
     }
 

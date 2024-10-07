@@ -1,8 +1,8 @@
 use anyhow::Result;
 use serde_json::Value;
 
-pub mod mostlygnu;
 pub mod mostlyhelp;
+pub mod mostlypasta;
 
 pub trait ChatCommand {
     fn new() -> Self
