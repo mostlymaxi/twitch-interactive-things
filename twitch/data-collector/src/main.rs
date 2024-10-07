@@ -1,5 +1,8 @@
 use franz_client::FranzProducer;
 use std::{collections::HashMap, time::Duration};
+use tokio::signal;
+use tokio_util::sync::CancellationToken;
+use tracing_subscriber::fmt::init;
 use twitcheventsub::*;
 
 fn init_twitch_client() -> TwitchEventSubApi {
@@ -43,87 +46,106 @@ async fn init_franz_producers(topics: Vec<&str>) -> HashMap<String, FranzProduce
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
+    tracing_subscriber::fmt::init();
+
     let mut api = init_twitch_client();
     let mut producers = init_franz_producers(vec!["redeem", "chat", "follow", "raid"]).await;
 
-    'outer: loop {
-        let responses = api.receive_all_messages(Some(Duration::from_millis(10)));
-        for response in responses {
-            let event = match response {
-                ResponseType::Close => break 'outer,
-                ResponseType::Ready => {
-                    log::debug!("ready");
-                    continue;
-                }
-                ResponseType::Error(e) => {
-                    panic!("{:?}", e);
-                }
-                ResponseType::Event(e) => e,
-                ResponseType::RawResponse(_) => {
-                    continue;
-                }
-            };
+    let twitter = CancellationToken::new();
 
-            match event {
-                Event::ChatMessage(m) => {
-                    let msg = serde_json::to_string(&m).unwrap();
-                    log::debug!("{msg}");
+    let twitter_clone = twitter.clone();
+    let task = tokio::spawn(async move {
+        'outer: while !twitter_clone.is_cancelled() {
+            let responses = api.receive_all_messages(Some(Duration::from_millis(10)));
+            for response in responses {
+                let event = match response {
+                    ResponseType::Close => break 'outer,
+                    ResponseType::Ready => {
+                        tracing::debug!("ready");
+                        continue;
+                    }
+                    ResponseType::Error(e) => {
+                        panic!("{:?}", e);
+                    }
+                    ResponseType::Event(e) => e,
+                    ResponseType::RawResponse(_) => {
+                        continue;
+                    }
+                };
 
-                    producers
-                        .get_mut("chat")
-                        .expect("chat topic exists")
-                        .send(msg)
-                        .await
-                        .unwrap();
+                match event {
+                    Event::ChatMessage(m) => {
+                        let msg = serde_json::to_string(&m).unwrap();
+                        log::debug!("{msg}");
+
+                        producers
+                            .get_mut("chat")
+                            .expect("chat topic exists")
+                            .send(msg)
+                            .await
+                            .unwrap();
+                    }
+                    Event::Follow(m) => {
+                        let msg = serde_json::to_string(&m).unwrap();
+                        log::debug!("{msg}");
+
+                        producers
+                            .get_mut("follow")
+                            .expect("follow topic exists")
+                            .send(msg)
+                            .await
+                            .unwrap();
+                    }
+                    Event::Raid(m) => {
+                        let msg = serde_json::to_string(&m).unwrap();
+                        log::debug!("{msg}");
+
+                        producers
+                            .get_mut("raid")
+                            .expect("raid topic exists")
+                            .send(msg)
+                            .await
+                            .unwrap();
+                    }
+                    Event::PointsCustomRewardRedeem(m) => {
+                        let msg = serde_json::to_string(&m).unwrap();
+                        log::debug!("{msg}");
+
+                        producers
+                            .get_mut("redeem")
+                            .expect("redeem topic exists")
+                            .send(msg)
+                            .await
+                            .unwrap();
+                    }
+
+                    Event::ChannelPointsAutoRewardRedeem(m) => {
+                        let msg = serde_json::to_string(&m).unwrap();
+                        log::debug!("{msg}");
+
+                        producers
+                            .get_mut("redeem")
+                            .expect("redeem topic exists")
+                            .send(msg)
+                            .await
+                            .unwrap();
+                    }
+                    _ => {}
                 }
-                Event::Follow(m) => {
-                    let msg = serde_json::to_string(&m).unwrap();
-                    log::debug!("{msg}");
-
-                    franz_topics
-                        .get_mut("follow")
-                        .expect("follow topic exists")
-                        .send(msg)
-                        .await
-                        .unwrap();
-                }
-                Event::Raid(m) => {
-                    let msg = serde_json::to_string(&m).unwrap();
-                    log::debug!("{msg}");
-
-                    franz_topics
-                        .get_mut("raid")
-                        .expect("raid topic exists")
-                        .send(msg)
-                        .await
-                        .unwrap();
-                }
-                Event::PointsCustomRewardRedeem(m) => {
-                    let msg = serde_json::to_string(&m).unwrap();
-                    log::debug!("{msg}");
-
-                    franz_topics
-                        .get_mut("redeem")
-                        .expect("redeem topic exists")
-                        .send(msg)
-                        .await
-                        .unwrap();
-                }
-
-                Event::ChannelPointsAutoRewardRedeem(m) => {
-                    let msg = serde_json::to_string(&m).unwrap();
-                    log::debug!("{msg}");
-
-                    franz_topics
-                        .get_mut("redeem")
-                        .expect("redeem topic exists")
-                        .send(msg)
-                        .await
-                        .unwrap();
-                }
-                _ => {}
             }
         }
-    }
+    });
+
+    tokio::spawn(async move {
+        match signal::ctrl_c().await {
+            Ok(()) => {}
+            Err(err) => {
+                eprintln!("Unable to listen for shutdown signal: {}", err);
+            }
+        }
+
+        twitter.cancel();
+    });
+
+    task.await.unwrap();
 }
