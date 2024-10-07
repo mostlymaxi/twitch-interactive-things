@@ -11,6 +11,7 @@ primary_region = 'iad'
 [env]
 PORT = '8080'
 RUST_LOG = 'debug'
+FRANZ_BROKER = 'tits.franz.mostlymaxi.com:8085'
 
 [[services]]
 internal_port = 8080
@@ -21,7 +22,7 @@ min_machines_running = 1
 
 [[restart]]
 policy = "always"
-retries = 10
+retries = 5
 
 
 [[vm]]
