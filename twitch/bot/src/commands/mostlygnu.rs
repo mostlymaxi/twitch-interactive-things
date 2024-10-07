@@ -7,8 +7,8 @@ impl ChatCommand for MostlyGnu {
         MostlyGnu {}
     }
 
-    fn names() -> Vec<&'static str> {
-        vec!["gnu"]
+    fn names() -> Vec<String> {
+        vec!["gnu".to_owned()]
     }
 
     fn handle(&mut self, args: String, ctx: serde_json::Value) -> String {

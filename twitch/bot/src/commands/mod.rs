@@ -8,7 +8,7 @@ pub trait ChatCommand {
     where
         Self: Sized;
 
-    fn names() -> Vec<&'static str>
+    fn names() -> Vec<String>
     where
         Self: Sized;
 

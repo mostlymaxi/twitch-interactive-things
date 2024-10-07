@@ -53,28 +53,22 @@ async fn main() {
 
     } {
         let Ok(msg) = msg else { continue };
-
-        let Ok(v) = serde_json::from_str::<Value>(&msg) else {
+        let Ok(msg) = serde_json::from_str::<Value>(&msg) else {
             continue;
         };
 
-        let args = v["message"]["text"].to_string();
+        let args = msg["message"]["text"].to_string();
         let mut args = args.split_whitespace();
-        let Some(cmd) = args.next() else {
-            continue;
-        };
-        if Some('!') != cmd.chars().next() {
-            continue;
-        }
-        let Some(cmd) = cmd.strip_prefix("!") else {
+
+        let Some(cmd) = args
+            .next()
+            .filter(|cmd| cmd.starts_with("!"))
+            .and_then(|cmd| cmd.strip_prefix("!"))
+        else {
             continue;
         };
 
         hs.get_mut(cmd)
-            .and_then(|c| Some(c.get_mut().handle(args.collect(), v)));
-
-        // match (key_word) {
-        //      mostlygnu => Mostlygnu::run(args, context)
-        // }
+            .map(|c| Some(c.borrow_mut().handle(args.collect(), msg)));
     }
 }

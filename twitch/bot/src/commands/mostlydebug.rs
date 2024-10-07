@@ -9,8 +9,8 @@ impl ChatCommand for MostlyDebug {
         MostlyDebug {}
     }
 
-    fn names() -> Vec<&'static str> {
-        vec!["debug", "dbg"]
+    fn names() -> Vec<String> {
+        vec!["debug".to_owned(), "dbg".to_owned()]
     }
 
     fn handle(&mut self, args: String, ctx: Value) -> String {
