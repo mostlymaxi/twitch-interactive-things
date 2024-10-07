@@ -16,18 +16,25 @@ pub trait ChatCommand: 'static {
     fn help(&self) -> String;
 }
 
-pub type CommandMap = HashMap<String, Rc<RefCell<dyn ChatCommand>>>;
+//; pub type CommandMap = HashMap<String, Rc<RefCell<dyn ChatCommand>>>;
+pub struct CommandMap(HashMap<String, Rc<RefCell<dyn ChatCommand>>>);
 
-pub fn init() -> CommandMap {
-    fn cmd_insert<C: ChatCommand>(map: &mut CommandMap, cmd: C) {
-        let cmd = Rc::new(RefCell::new(cmd));
-        for name in C::names() {
-            map.insert(name.into(), Rc::clone(&cmd) as _);
-        }
+impl CommandMap {
+    fn new() -> Self {
+        CommandMap(HashMap::new())
     }
 
-    let mut map = HashMap::new();
-    cmd_insert(&mut map, mostlypasta::MostlyPasta::new());
-    cmd_insert(&mut map, mostlyhelp::MostlyHelp::new());
+    fn insert<C: ChatCommand>(&mut self, cmd: C) {
+        let cmd = Rc::new(RefCell::new(cmd));
+        for name in C::names() {
+            self.0.insert(name.into(), Rc::clone(&cmd) as _);
+        }
+    }
+}
+
+pub fn init() -> CommandMap {
+    let mut map = CommandMap::new();
+    map.insert(mostlypasta::MostlyPasta::new());
+    map.insert(mostlyhelp::MostlyHelp::new());
     map
 }
