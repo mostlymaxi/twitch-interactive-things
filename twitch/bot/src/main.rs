@@ -71,7 +71,7 @@ async fn main() {
         };
 
         hs.get_mut(cmd)
-            .and_then(|c| Some(*(Rc::get_mut(c).unwrap().borrow_mut()).handle(args.collect(), v)));
+            .and_then(|c| Some(c.get_mut().handle(args.collect(), v)));
 
         // match (key_word) {
         //      mostlygnu => Mostlygnu::run(args, context)
