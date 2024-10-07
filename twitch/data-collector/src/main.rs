@@ -1,10 +1,7 @@
-use std::{collections::HashMap, thread::sleep, time::Duration};
-use twitch_eventsub::*;
+use franz_client::FranzProducer;
+use std::{collections::HashMap, time::Duration};
+use twitcheventsub::*;
 
-// 1. read data from twitch api
-// 2. split data into respective topics
-// 3. maybe continue the weird file that i do
-// for legacy support
 fn init_twitch_client() -> TwitchEventSubApi {
     let keys = TwitchKeys::from_secrets_env().unwrap();
 
@@ -27,38 +24,28 @@ fn init_twitch_client() -> TwitchEventSubApi {
             Subscription::AdBreakBegin,
         ]);
 
-    match twitch.build() {
-        Ok(api) => api,
-        Err(EventSubError::TokenMissingScope) => {
-            panic!("Reauthorisation of token is required for the token to have all the requested subscriptions.");
-        }
-        Err(EventSubError::NoSubscriptionsRequested) => {
-            panic!("No subscriptions passed into builder!");
-        }
-        Err(e) => {
-            panic!("{:?}", e);
-        }
-    }
+    twitch.build().expect("twitch api client")
 }
 
-const MAX_RETRIES: usize = 5;
+async fn init_franz_producers(topics: Vec<&str>) -> HashMap<String, FranzProducer> {
+    let mut franz_producers = HashMap::new();
+
+    for topic in topics {
+        let p = franz_client::FranzProducer::new("tits.franz.mostlymaxi.com:8085", topic)
+            .await
+            .expect("franz client connection");
+
+        franz_producers.insert(topic.to_string(), p);
+    }
+
+    franz_producers
+}
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
-
-    let mut current_retries = 0;
-
     let mut api = init_twitch_client();
-    let mut franz_topics = HashMap::new();
-
-    for topic in ["chat", "follow", "raid", "redeem"] {
-        let p = franz_client::FranzProducer::new("tits.franz.mostlymaxi.com:8085", topic)
-            .await
-            .unwrap();
-
-        franz_topics.insert(topic.to_string(), p);
-    }
+    let mut producers = init_franz_producers(vec!["redeem", "chat", "follow", "raid"]).await;
 
     'outer: loop {
         let responses = api.receive_all_messages(Some(Duration::from_millis(10)));
@@ -67,34 +54,23 @@ async fn main() {
                 ResponseType::Close => break 'outer,
                 ResponseType::Ready => {
                     log::debug!("ready");
-                    current_retries = 0;
                     continue;
                 }
                 ResponseType::Error(e) => {
-                    log::error!("{:?}", e);
-                    if current_retries > MAX_RETRIES {
-                        log::error!("max retries reached... exiting");
-                        break 'outer;
-                    }
-                    current_retries += 1;
-                    sleep(Duration::from_secs(1));
-                    continue;
+                    panic!("{:?}", e);
                 }
                 ResponseType::Event(e) => e,
                 ResponseType::RawResponse(_) => {
-                    current_retries = 0;
                     continue;
                 }
             };
-
-            current_retries = 0;
 
             match event {
                 Event::ChatMessage(m) => {
                     let msg = serde_json::to_string(&m).unwrap();
                     log::debug!("{msg}");
 
-                    franz_topics
+                    producers
                         .get_mut("chat")
                         .expect("chat topic exists")
                         .send(msg)

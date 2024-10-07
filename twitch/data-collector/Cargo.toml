@@ -9,4 +9,4 @@ franz-client = "0.1.2"
 log = "0.4.22"
 serde_json = "1.0.128"
 tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread"] }
-twitch_eventsub = "0.1.2"
+twitcheventsub = "0.1.4"
