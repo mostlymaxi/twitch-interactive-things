@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serde_json::Value;
 
 pub mod mostlydebug;
@@ -12,5 +13,7 @@ pub trait ChatCommand {
     where
         Self: Sized;
 
-    fn handle(&mut self, args: String, ctx: Value) -> String;
+    fn handle(&mut self, args: String, ctx: Value) -> Result<String>;
+
+    fn help(&self) -> String;
 }

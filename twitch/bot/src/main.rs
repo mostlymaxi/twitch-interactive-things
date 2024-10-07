@@ -17,8 +17,10 @@ fn init_commands() -> HashMap<String, Rc<RefCell<dyn ChatCommand>>> {
         h.insert(name.to_owned(), cmd.clone());
     }
 
-    let cmd = Rc::new(RefCell::new(mostlydebug::MostlyDebug::new()));
-    for name in mostlydebug::MostlyDebug::names() {
+    let cmd = Rc::new(RefCell::new(mostlydebug::MostlyHelp::new_with_args(
+        h.clone(),
+    )));
+    for name in mostlydebug::MostlyHelp::names() {
         h.insert(name.to_owned(), cmd.clone());
     }
 
