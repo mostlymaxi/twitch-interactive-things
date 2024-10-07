@@ -1302,8 +1302,7 @@ dependencies = [
 [[package]]
 name = "twitcheventsub"
 version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ce66793bc2a874e6fff1702e4aefd1633c513c3d776651f9a466a8f989714c7"
+source = "git+https://github.com/Owlkaline/TwitchEventSub-rs?rev=9685ed14cf0d71627fce75d43607785f3c2cf04a#9685ed14cf0d71627fce75d43607785f3c2cf04a"
 dependencies = [
  "attohttpc",
  "curl",
@@ -1312,6 +1311,7 @@ dependencies = [
  "open",
  "serde",
  "serde_json",
+ "serde_with",
  "simple_env_load",
  "tungstenite",
  "twitcheventsub-structs",
@@ -1320,8 +1320,7 @@ dependencies = [
 [[package]]
 name = "twitcheventsub-structs"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f555ad95732c0a2d30116522c89f139b1794c57d9570225bb772f6f056a07e1b"
+source = "git+https://github.com/Owlkaline/TwitchEventSub-rs?rev=9685ed14cf0d71627fce75d43607785f3c2cf04a#9685ed14cf0d71627fce75d43607785f3c2cf04a"
 dependencies = [
  "serde",
  "serde_json",

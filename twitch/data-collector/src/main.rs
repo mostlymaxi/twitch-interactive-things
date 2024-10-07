@@ -1,151 +1,164 @@
 use franz_client::FranzProducer;
 use std::{collections::HashMap, time::Duration};
-use tokio::signal;
+use tokio::{select, signal, time};
 use tokio_util::sync::CancellationToken;
-use tracing_subscriber::fmt::init;
+use tracing::instrument;
 use twitcheventsub::*;
 
-fn init_twitch_client() -> TwitchEventSubApi {
-    let keys = TwitchKeys::from_secrets_env().unwrap();
-
-    let twitch = TwitchEventSubApi::builder(keys)
-        .set_redirect_url("https://localhost:3000")
-        .generate_new_token_if_insufficent_scope(true)
-        .generate_new_token_if_none(true)
-        .generate_access_token_on_expire(true)
-        .auto_save_load_created_tokens(".user_token.env", ".refresh_token.env")
-        .add_subscriptions(vec![
-            Subscription::ChannelFollow,
-            Subscription::ChannelRaid,
-            Subscription::ChannelNewSubscription,
-            Subscription::ChannelGiftSubscription,
-            Subscription::ChannelResubscription,
-            Subscription::ChannelCheer,
-            Subscription::ChannelPointsCustomRewardRedeem,
-            Subscription::ChannelPointsAutoRewardRedeem,
-            Subscription::ChatMessage,
-            Subscription::AdBreakBegin,
-        ]);
-
-    twitch.build().expect("twitch api client")
+struct DataCollector {
+    api: TwitchEventSubApi,
+    producers: HashMap<String, FranzProducer>,
+    twitter: CancellationToken,
 }
 
-async fn init_franz_producers(topics: Vec<&str>) -> HashMap<String, FranzProducer> {
-    let mut franz_producers = HashMap::new();
+impl DataCollector {
+    pub async fn new(twitter: CancellationToken) -> Self {
+        let api = Self::init_twitch_client();
+        let producers = Self::init_franz_producers(vec!["redeem", "chat", "follow", "raid"]).await;
 
-    for topic in topics {
-        let p = franz_client::FranzProducer::new("tits.franz.mostlymaxi.com:8085", topic)
-            .await
-            .expect("franz client connection");
-
-        franz_producers.insert(topic.to_string(), p);
+        DataCollector {
+            api,
+            producers,
+            twitter,
+        }
     }
 
-    franz_producers
-}
+    #[instrument(skip(self, msg))]
+    async fn send(&mut self, topic: &str, msg: &str) {
+        match self
+            .producers
+            .get_mut(topic)
+            .expect("chat topic exists")
+            .send(msg)
+            .await
+        {
+            Err(e) => {
+                tracing::error!(error = %e, msg = %msg);
+                self.twitter.cancel();
+            }
+            Ok(()) => tracing::debug!(msg = %msg),
+        }
+    }
 
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::fmt::init();
+    #[instrument(skip(self))]
+    pub async fn run(mut self) {
+        let mut interval = time::interval(Duration::from_millis(50));
 
-    let mut api = init_twitch_client();
-    let mut producers = init_franz_producers(vec!["redeem", "chat", "follow", "raid"]).await;
+        loop {
+            select! {
+                _ = self.twitter.cancelled() => break,
+                _ = interval.tick() => {},
+            }
 
-    let twitter = CancellationToken::new();
-
-    let twitter_clone = twitter.clone();
-    let task = tokio::spawn(async move {
-        'outer: while !twitter_clone.is_cancelled() {
-            let responses = api.receive_all_messages(Some(Duration::from_millis(10)));
-            for response in responses {
+            for response in self.api.receive_all_messages(Some(Duration::ZERO)) {
                 let event = match response {
-                    ResponseType::Close => break 'outer,
+                    ResponseType::Close => {
+                        self.twitter.cancel();
+                        break;
+                    }
                     ResponseType::Ready => {
                         tracing::debug!("ready");
                         continue;
                     }
                     ResponseType::Error(e) => {
-                        panic!("{:?}", e);
+                        tracing::error!("{:#?}", e);
+                        self.twitter.cancel();
+                        break;
                     }
                     ResponseType::Event(e) => e,
-                    ResponseType::RawResponse(_) => {
+                    ResponseType::RawResponse(r) => {
+                        tracing::trace!(response = %r);
                         continue;
                     }
                 };
 
                 match event {
                     Event::ChatMessage(m) => {
-                        let msg = serde_json::to_string(&m).unwrap();
-                        log::debug!("{msg}");
-
-                        producers
-                            .get_mut("chat")
-                            .expect("chat topic exists")
-                            .send(msg)
-                            .await
-                            .unwrap();
+                        let m = serde_json::to_string(&m).unwrap();
+                        self.send("chat", &m).await;
                     }
                     Event::Follow(m) => {
-                        let msg = serde_json::to_string(&m).unwrap();
-                        log::debug!("{msg}");
-
-                        producers
-                            .get_mut("follow")
-                            .expect("follow topic exists")
-                            .send(msg)
-                            .await
-                            .unwrap();
+                        let m = serde_json::to_string(&m).unwrap();
+                        self.send("follow", &m).await;
                     }
                     Event::Raid(m) => {
-                        let msg = serde_json::to_string(&m).unwrap();
-                        log::debug!("{msg}");
-
-                        producers
-                            .get_mut("raid")
-                            .expect("raid topic exists")
-                            .send(msg)
-                            .await
-                            .unwrap();
+                        let m = serde_json::to_string(&m).unwrap();
+                        self.send("raid", &m).await;
                     }
                     Event::PointsCustomRewardRedeem(m) => {
-                        let msg = serde_json::to_string(&m).unwrap();
-                        log::debug!("{msg}");
-
-                        producers
-                            .get_mut("redeem")
-                            .expect("redeem topic exists")
-                            .send(msg)
-                            .await
-                            .unwrap();
+                        let m = serde_json::to_string(&m).unwrap();
+                        self.send("redeem", &m).await;
                     }
-
                     Event::ChannelPointsAutoRewardRedeem(m) => {
-                        let msg = serde_json::to_string(&m).unwrap();
-                        log::debug!("{msg}");
-
-                        producers
-                            .get_mut("redeem")
-                            .expect("redeem topic exists")
-                            .send(msg)
-                            .await
-                            .unwrap();
+                        let m = serde_json::to_string(&m).unwrap();
+                        self.send("redeem", &m).await;
                     }
                     _ => {}
                 }
             }
         }
-    });
+    }
 
-    tokio::spawn(async move {
-        match signal::ctrl_c().await {
-            Ok(()) => {}
-            Err(err) => {
-                eprintln!("Unable to listen for shutdown signal: {}", err);
-            }
+    fn init_twitch_client() -> TwitchEventSubApi {
+        let keys = TwitchKeys::from_secrets_env().unwrap();
+
+        let twitch = TwitchEventSubApi::builder(keys)
+            .set_redirect_url("https://localhost:3000")
+            .generate_new_token_if_insufficent_scope(true)
+            .generate_new_token_if_none(true)
+            .generate_access_token_on_expire(true)
+            .auto_save_load_created_tokens(".user_token.env", ".refresh_token.env")
+            .add_subscriptions(vec![
+                Subscription::ChannelFollow,
+                Subscription::ChannelRaid,
+                Subscription::ChannelNewSubscription,
+                Subscription::ChannelGiftSubscription,
+                Subscription::ChannelResubscription,
+                Subscription::ChannelCheer,
+                Subscription::ChannelPointsCustomRewardRedeem,
+                Subscription::ChannelPointsAutoRewardRedeem,
+                Subscription::ChatMessage,
+                Subscription::AdBreakBegin,
+            ]);
+
+        twitch.build().expect("twitch api client")
+    }
+
+    async fn init_franz_producers(topics: Vec<&str>) -> HashMap<String, FranzProducer> {
+        let mut franz_producers = HashMap::new();
+        let broker = std::env::var("FRANZ_BROKER").expect("FRANZ_BROKER environment variable set");
+
+        for topic in topics {
+            let p = franz_client::FranzProducer::new(&broker, &topic.to_owned())
+                .await
+                .expect("franz client connection");
+
+            franz_producers.insert(topic.to_string(), p);
         }
 
-        twitter.cancel();
-    });
+        franz_producers
+    }
+}
 
-    task.await.unwrap();
+async fn cancel_on_signal(twitter: CancellationToken) {
+    match signal::ctrl_c().await {
+        Ok(()) => tracing::info!("caught signal. shutting down..."),
+        Err(err) => tracing::error!("unable to listen for shutdown signal: {}", err),
+    }
+
+    twitter.cancel();
+}
+
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+
+    let twitter = CancellationToken::new();
+    let twitter_c = twitter.clone();
+    let dc = DataCollector::new(twitter_c).await;
+
+    select! {
+        _ = dc.run() => {},
+        _ = cancel_on_signal(twitter) => {},
+    }
 }
