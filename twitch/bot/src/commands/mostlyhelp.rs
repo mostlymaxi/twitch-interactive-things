@@ -1,25 +1,26 @@
 use crate::commands::{ChatCommand, CommandMap};
 use anyhow::{anyhow, Result};
 use serde_json::Value;
-use std::collections::HashMap;
 
 pub struct MostlyHelp {
     cmds: CommandMap,
 }
 
 impl MostlyHelp {
-    pub fn new() -> Self {
-        Self {
-            cmds: HashMap::new(),
-        }
+    /// the help command is special in that it needs access to the command
+    /// map to call the help function on a specified command
+    pub fn init(&mut self, cmds: CommandMap) {
+        self.cmds = cmds;
     }
-
-    // pub fn new_with_args(cmds: CommandMap) -> Self {
-    //     MostlyHelp { cmds }
-    // }
 }
 
 impl ChatCommand for MostlyHelp {
+    fn new() -> Self {
+        Self {
+            cmds: CommandMap::new(),
+        }
+    }
+
     fn names() -> Vec<String> {
         vec!["help".to_owned()]
     }

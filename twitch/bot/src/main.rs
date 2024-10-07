@@ -42,13 +42,12 @@ async fn main() {
 
         let Some(cmd) = args
             .next()
-            .filter(|cmd| cmd.starts_with("!"))
-            .and_then(|cmd| cmd.strip_prefix("!"))
+            .filter(|cmd| cmd.starts_with('!'))
+            .and_then(|cmd| cmd.strip_prefix('!'))
         else {
             continue;
         };
 
-        hs.get_mut(cmd)
-            .map(|c| Some(c.borrow_mut().handle(args.collect(), msg)));
+        hs.handle_cmd(cmd, args.collect(), msg);
     }
 }

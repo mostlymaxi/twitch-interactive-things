@@ -4,13 +4,13 @@ use crate::commands::ChatCommand;
 
 pub struct MostlyPasta {}
 
-impl MostlyPasta {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
+impl MostlyPasta {}
 
 impl ChatCommand for MostlyPasta {
+    fn new() -> Self {
+        Self {}
+    }
+
     fn names() -> Vec<String> {
         vec!["mostlypasta".to_owned()]
     }
