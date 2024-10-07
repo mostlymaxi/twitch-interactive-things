@@ -1,26 +1,25 @@
+use crate::commands::{ChatCommand, CommandMap};
 use anyhow::{anyhow, Result};
 use serde_json::Value;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
-
-use crate::ChatCommand;
+use std::collections::HashMap;
 
 pub struct MostlyHelp {
-    cmds: HashMap<String, Rc<RefCell<dyn ChatCommand>>>,
+    cmds: CommandMap,
 }
 
 impl MostlyHelp {
-    pub fn new_with_args(cmds: HashMap<String, Rc<RefCell<dyn ChatCommand>>>) -> Self {
-        MostlyHelp { cmds }
-    }
-}
-
-impl ChatCommand for MostlyHelp {
-    fn new() -> MostlyHelp {
-        MostlyHelp {
+    pub fn new() -> Self {
+        Self {
             cmds: HashMap::new(),
         }
     }
 
+    // pub fn new_with_args(cmds: CommandMap) -> Self {
+    //     MostlyHelp { cmds }
+    // }
+}
+
+impl ChatCommand for MostlyHelp {
     fn names() -> Vec<String> {
         vec!["help".to_owned()]
     }

@@ -1,14 +1,16 @@
 use anyhow::{anyhow, Result};
 
-use crate::ChatCommand;
+use crate::commands::ChatCommand;
 
 pub struct MostlyPasta {}
 
-impl ChatCommand for MostlyPasta {
-    fn new() -> Self {
-        MostlyPasta {}
+impl MostlyPasta {
+    pub fn new() -> Self {
+        Self {}
     }
+}
 
+impl ChatCommand for MostlyPasta {
     fn names() -> Vec<String> {
         vec!["mostlypasta".to_owned()]
     }

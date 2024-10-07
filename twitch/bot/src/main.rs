@@ -1,31 +1,8 @@
 mod commands;
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
-
-use commands::*;
-
 use serde_json::Value;
 use tokio::{select, signal};
 use tokio_util::sync::CancellationToken;
-
-fn init_commands() -> HashMap<String, Rc<RefCell<dyn ChatCommand>>> {
-    let mut h: HashMap<String, Rc<RefCell<dyn ChatCommand>>> = HashMap::new();
-
-    // this gonna get macro-ified!!! :D
-    let cmd = Rc::new(RefCell::new(mostlypasta::MostlyPasta::new()));
-    for name in mostlypasta::MostlyPasta::names() {
-        h.insert(name.to_owned(), cmd.clone());
-    }
-
-    let cmd = Rc::new(RefCell::new(mostlyhelp::MostlyHelp::new_with_args(
-        h.clone(),
-    )));
-    for name in mostlyhelp::MostlyHelp::names() {
-        h.insert(name.to_owned(), cmd.clone());
-    }
-
-    h
-}
 
 #[tokio::main]
 async fn main() {
@@ -43,7 +20,8 @@ async fn main() {
         twitter_clone.cancel();
     });
 
-    let mut hs = init_commands();
+    let mut hs = commands::init();
+
     // pulling all the redeems from twitch
     let mut c = franz_client::FranzConsumer::new("tits.franz.mostlymaxi.com:8085", "chat")
         .await
