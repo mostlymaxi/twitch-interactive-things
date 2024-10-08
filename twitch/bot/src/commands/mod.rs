@@ -1,5 +1,4 @@
 use anyhow::Result;
-use mostlypasta::MostlyPasta;
 use tracing::instrument;
 use twitcheventsub::{EventSubError, MessageData, TwitchEventSubApi};
 
@@ -8,7 +7,7 @@ pub mod mostlypasta;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-pub trait ChatCommand<TwitchApiContext>: 'static {
+pub trait ChatCommand: 'static {
     fn new() -> Self
     where
         Self: Sized;
@@ -17,28 +16,22 @@ pub trait ChatCommand<TwitchApiContext>: 'static {
     where
         Self: Sized;
 
-    fn handle(&mut self, api: &mut TwitchApiContext, ctx: &MessageData) -> Result<()>;
+    fn handle(&mut self, api: &mut TwitchApiWrapper, ctx: &MessageData) -> Result<()>;
 
     fn help(&self) -> String;
 }
 
-pub trait TwitchApiContext {
-    fn send_chat_message<S: Into<String>>(&mut self, message: S) -> Result<String, EventSubError>
-    where
-        Self: Sized;
-
-    fn send_chat_message_with_reply<S: Into<String>>(
-        &mut self,
-        message: S,
-        reply_message_parent_id: Option<S>,
-    ) -> Result<String, EventSubError>
-    where
-        Self: Sized;
+pub enum TwitchApiWrapper {
+    Live(TwitchEventSubApi),
+    Test,
 }
 
-impl TwitchApiContext for TwitchEventSubApi {
+impl TwitchApiWrapper {
     fn send_chat_message<S: Into<String>>(&mut self, message: S) -> Result<String, EventSubError> {
-        self.send_chat_message(message.into())
+        match self {
+            Self::Live(api) => api.send_chat_message(message),
+            Self::Test => todo!(),
+        }
     }
 
     fn send_chat_message_with_reply<S: Into<String>>(
@@ -46,30 +39,14 @@ impl TwitchApiContext for TwitchEventSubApi {
         message: S,
         reply_message_parent_id: Option<S>,
     ) -> Result<String, EventSubError> {
-        self.send_chat_message_with_reply(message, reply_message_parent_id.map(|s| s.into()))
+        match self {
+            Self::Live(api) => self.send_chat_message_with_reply(message, reply_message_parent_id),
+            Self::Test => todo!(),
+        }
     }
 }
 
-pub struct TestTwitchEventSubApi {}
-
-impl TwitchApiContext for TestTwitchEventSubApi {
-    fn send_chat_message<S: Into<String>>(&mut self, message: S) -> Result<String, EventSubError> {
-        // check for message length
-        // check for how soon the message got resent
-        // etc...
-        Ok(message.into())
-    }
-
-    fn send_chat_message_with_reply<S: Into<String>>(
-        &mut self,
-        message: S,
-        reply_message_parent_id: Option<S>,
-    ) -> Result<String, EventSubError> {
-        Ok(message.into())
-    }
-}
-
-type CommandCell = Rc<RefCell<dyn ChatCommand<TwitchEventSubApi>>>;
+type CommandCell = Rc<RefCell<dyn ChatCommand>>;
 #[derive(Clone)]
 pub struct CommandMap(HashMap<String, CommandCell>);
 
@@ -78,7 +55,7 @@ impl CommandMap {
         CommandMap(HashMap::new())
     }
 
-    fn insert<C: ChatCommand<TwitchEventSubApi>>(&mut self, cmd: C) {
+    fn insert<C: ChatCommand>(&mut self, cmd: C) {
         let cmd = Rc::new(RefCell::new(cmd));
         for name in C::names() {
             self.0.insert(name, Rc::clone(&cmd) as _);
@@ -94,7 +71,7 @@ impl CommandMap {
     }
 
     #[instrument(skip(self, api, ctx))]
-    pub fn handle_cmd(&mut self, api: &mut TwitchEventSubApi, cmd: &str, ctx: &MessageData) {
+    pub fn handle_cmd(&mut self, api: &mut TwitchApiWrapper, cmd: &str, ctx: &MessageData) {
         match self.get_mut(cmd).map(|c| c.borrow_mut().handle(api, ctx)) {
             None => {
                 let _ = api.send_chat_message_with_reply(
