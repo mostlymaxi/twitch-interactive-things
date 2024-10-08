@@ -81,6 +81,6 @@ async fn main() {
             continue;
         };
 
-        hs.handle_cmd(&mut api, cmd, args.collect(), &msg);
+        hs.handle_cmd(&mut api, cmd, &msg);
     }
 }

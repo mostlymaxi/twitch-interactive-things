@@ -26,14 +26,11 @@ impl ChatCommand for MostlyHelp {
         vec!["help".to_owned()]
     }
 
-    #[instrument(skip(self, api, _ctx))]
-    fn handle(
-        &mut self,
-        api: &mut TwitchEventSubApi,
-        args: String,
-        _ctx: &MessageData,
-    ) -> Result<()> {
-        let mut args = args.split_whitespace();
+    #[instrument(skip(self, api, ctx))]
+    fn handle(&mut self, api: &mut TwitchEventSubApi, ctx: &MessageData) -> Result<()> {
+        let mut args = ctx.message.text.split_whitespace();
+        let _ = args.next();
+
         let Some(cmd_name) = args.next() else {
             return Err(anyhow!("no arguments passed"));
         };

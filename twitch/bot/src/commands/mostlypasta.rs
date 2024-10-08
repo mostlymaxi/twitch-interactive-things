@@ -16,13 +16,9 @@ impl ChatCommand for MostlyPasta {
         vec!["mostlypasta".to_owned()]
     }
 
-    fn handle(
-        &mut self,
-        api: &mut TwitchEventSubApi,
-        args: String,
-        _ctx: &MessageData,
-    ) -> Result<()> {
-        let mut args = args.split_whitespace();
+    fn handle(&mut self, api: &mut TwitchEventSubApi, ctx: &MessageData) -> Result<()> {
+        let mut args = ctx.message.text.split_whitespace();
+        let _ = args.next();
         let gnu = args.next().ok_or(anyhow!("not enough arguments"))?;
         let linux = args.next().ok_or(anyhow!("not enough arguments"))?;
 

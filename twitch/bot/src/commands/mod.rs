@@ -16,12 +16,7 @@ pub trait ChatCommand: 'static {
     where
         Self: Sized;
 
-    fn handle(
-        &mut self,
-        api: &mut TwitchEventSubApi,
-        args: String,
-        ctx: &MessageData,
-    ) -> Result<()>;
+    fn handle(&mut self, api: &mut TwitchEventSubApi, ctx: &MessageData) -> Result<()>;
 
     fn help(&self) -> String;
 }
@@ -51,17 +46,8 @@ impl CommandMap {
     }
 
     #[instrument(skip(self, api, ctx))]
-    pub fn handle_cmd(
-        &mut self,
-        api: &mut TwitchEventSubApi,
-        cmd: &str,
-        args: String,
-        ctx: &MessageData,
-    ) {
-        match self
-            .get_mut(cmd)
-            .map(|c| c.borrow_mut().handle(api, args, ctx))
-        {
+    pub fn handle_cmd(&mut self, api: &mut TwitchEventSubApi, cmd: &str, ctx: &MessageData) {
+        match self.get_mut(cmd).map(|c| c.borrow_mut().handle(api, ctx)) {
             None => {
                 api.send_chat_message_with_reply(
                     format!("{cmd} does not exist"),
