@@ -2,9 +2,13 @@ use anyhow::Result;
 use tracing::instrument;
 use twitcheventsub::{EventSubError, MessageData, TwitchEventSubApi};
 
+// ----------------------------------------------------------------------------
+// add your command module here:
 pub mod mostlyhelp;
 pub mod mostlypasta;
 pub mod ping;
+
+// ----------------------------------------------------------------------------
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 

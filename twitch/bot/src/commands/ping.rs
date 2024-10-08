@@ -1,3 +1,9 @@
+//! test command that replies pong
+//!
+//! usage: ```!ping```
+//!
+//! author: mostlymaxi
+
 use anyhow::anyhow;
 use tracing::{debug, error, instrument};
 
@@ -26,7 +32,7 @@ impl ChatCommand for MostlyPing {
     ) -> anyhow::Result<()> {
         match api.send_chat_message_with_reply("pong", Some(&ctx.message_id)) {
             Ok(s) => {
-                debug!(ping_api_reply = %s);
+                debug!(reply = %s);
                 Ok(())
             }
             Err(e) => {

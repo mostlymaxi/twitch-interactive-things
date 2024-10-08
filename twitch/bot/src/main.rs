@@ -1,4 +1,4 @@
-mod commands;
+pub mod commands;
 
 use commands::TwitchApiWrapper;
 use franz_client::FranzConsumer;
