@@ -68,11 +68,12 @@ async fn handle_chat_messages(
             .next()
             .filter(|cmd| cmd.starts_with('!'))
             .and_then(|cmd| cmd.strip_prefix('!'))
+            .map(|cmd| cmd.to_lowercase())
         else {
             continue;
         };
 
-        handler(msg, cmd);
+        handler(msg, &cmd);
     }
 }
 
@@ -89,7 +90,7 @@ async fn main() {
     tokio::spawn(cancel_on_signal(cancel_token.clone()));
 
     let mut hs = commands::init();
-    let bot_id = std::env::var("TITS_BOT_ID").expect("TITS_BOT_ID environment variable set");
+    let bot_id = std::env::var("TWITCH_BOT_ID").expect("TWITCH_BOT_ID environment variable set");
 
     handle_chat_messages(consumer, cancel_token, |msg, cmd| {
         if msg.chatter.id == bot_id {

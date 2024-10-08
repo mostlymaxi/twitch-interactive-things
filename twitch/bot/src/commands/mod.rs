@@ -53,7 +53,9 @@ impl TwitchApiWrapper {
         reply_message_parent_id: Option<S>,
     ) -> Result<String, EventSubError> {
         match self {
-            Self::Live(api) => self.send_chat_message_with_reply(message, reply_message_parent_id),
+            Self::Live(api) => {
+                api.send_chat_message_with_reply(message, reply_message_parent_id.map(S::into))
+            }
             Self::Test(_mock) => todo!(),
         }
     }
@@ -107,6 +109,7 @@ pub fn init() -> CommandMap {
     let mut map = CommandMap::new();
     // most commands will just be inserted
     map.insert(mostlypasta::MostlyPasta::new());
+    map.insert(ping::MostlyPing::new());
 
     // help is special
     let mut help = mostlyhelp::MostlyHelp::new();
