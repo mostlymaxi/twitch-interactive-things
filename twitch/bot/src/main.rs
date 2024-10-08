@@ -1,9 +1,12 @@
 mod commands;
 
+use franz_client::FranzConsumer;
 use tokio::{select, signal};
 use tokio_util::sync::CancellationToken;
-use tracing::instrument;
+use tracing::{error, info, instrument};
 use twitcheventsub::{MessageData, Subscription, TwitchEventSubApi, TwitchKeys};
+
+// ----------------------------------------------------------------------------
 
 #[instrument]
 fn init_twitch_api() -> TwitchEventSubApi {
@@ -27,47 +30,35 @@ fn init_twitch_api() -> TwitchEventSubApi {
     twitch.build().expect("twitch api build")
 }
 
-async fn cancel_on_signal(twitter: CancellationToken) {
-    match signal::ctrl_c().await {
-        Ok(()) => tracing::info!("caught signal. shutting down..."),
-        Err(err) => tracing::error!("unable to listen for shutdown signal: {}", err),
-    }
-
-    twitter.cancel();
+async fn init_franz_consumer(topic: &str) -> FranzConsumer {
+    let broker = std::env::var("FRANZ_BROKER").expect("FRANZ_BROKER environment variable set");
+    FranzConsumer::new(&broker, &topic.to_owned())
+        .await
+        .unwrap()
 }
 
-#[tokio::main]
-async fn main() {
-    tracing_subscriber::fmt::init();
-    let mut api = init_twitch_api();
+async fn cancel_on_signal(token: CancellationToken) {
+    match signal::ctrl_c().await {
+        Ok(()) => info!("caught signal. shutting down..."),
+        Err(err) => error!("unable to listen for shutdown signal: {}", err),
+    }
 
-    let mut hs = commands::init();
-    let twitter = CancellationToken::new();
+    token.cancel();
+}
 
-    let twitter_clone = twitter.clone();
-    tokio::spawn(async move {
-        cancel_on_signal(twitter_clone).await;
-    });
-
-    // pulling all the redeems from twitch
-    let broker = std::env::var("FRANZ_BROKER").expect("FRANZ_BROKER environment variable set");
-    let bot_id = std::env::var("TITS_BOT_ID").expect("TITS_BOT_ID environment variable set");
-    let mut c = franz_client::FranzConsumer::new(&broker, &"chat".to_owned())
-        .await
-        .unwrap();
-
+async fn handle_chat_messages(
+    mut consumer: FranzConsumer,
+    cancel_token: CancellationToken,
+    mut handler: impl FnMut(MessageData, &str),
+) {
     while let Some(msg) = select! {
-        _ = twitter.cancelled() => None,
-        m = c.recv() => m
+        _ = cancel_token.cancelled() => None,
+        m = consumer.recv() => m
     } {
         let Ok(msg) = msg else { continue };
         let Ok(msg) = serde_json::from_str::<MessageData>(&msg) else {
             continue;
         };
-
-        if msg.chatter.id == bot_id {
-            continue;
-        }
 
         let args = msg.message.text.clone();
         let mut args = args.split_whitespace();
@@ -80,6 +71,30 @@ async fn main() {
             continue;
         };
 
-        hs.handle_cmd(&mut api, cmd, &msg);
+        handler(msg, cmd);
     }
+}
+
+// ----------------------------------------------------------------------------
+
+#[tokio::main]
+async fn main() {
+    tracing_subscriber::fmt::init();
+
+    let mut api = init_twitch_api();
+    let consumer = init_franz_consumer("chat").await;
+
+    let cancel_token = CancellationToken::new();
+    tokio::spawn(cancel_on_signal(cancel_token.clone()));
+
+    let mut hs = commands::init();
+    let bot_id = std::env::var("TITS_BOT_ID").expect("TITS_BOT_ID environment variable set");
+
+    handle_chat_messages(consumer, cancel_token, |msg, cmd| {
+        if msg.chatter.id == bot_id {
+            return;
+        }
+        hs.handle_cmd(&mut api, cmd, &msg);
+    })
+    .await;
 }
