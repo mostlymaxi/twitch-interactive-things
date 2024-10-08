@@ -21,16 +21,24 @@ pub trait ChatCommand: 'static {
     fn help(&self) -> String;
 }
 
+pub struct MockTwitchEventSubApi {}
+
+impl MockTwitchEventSubApi {
+    pub fn init_twitch_api() -> MockTwitchEventSubApi {
+        MockTwitchEventSubApi {}
+    }
+}
+
 pub enum TwitchApiWrapper {
     Live(TwitchEventSubApi),
-    Test,
+    Test(MockTwitchEventSubApi),
 }
 
 impl TwitchApiWrapper {
     fn send_chat_message<S: Into<String>>(&mut self, message: S) -> Result<String, EventSubError> {
         match self {
             Self::Live(api) => api.send_chat_message(message),
-            Self::Test => todo!(),
+            Self::Test(_mock) => todo!(),
         }
     }
 
@@ -41,7 +49,7 @@ impl TwitchApiWrapper {
     ) -> Result<String, EventSubError> {
         match self {
             Self::Live(api) => self.send_chat_message_with_reply(message, reply_message_parent_id),
-            Self::Test => todo!(),
+            Self::Test(_mock) => todo!(),
         }
     }
 }
