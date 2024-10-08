@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use twitcheventsub::{MessageData, TwitchEventSubApi};
 
 use crate::commands::ChatCommand;
 
@@ -15,7 +16,12 @@ impl ChatCommand for MostlyPasta {
         vec!["mostlypasta".to_owned()]
     }
 
-    fn handle(&mut self, args: String, _ctx: serde_json::Value) -> Result<String> {
+    fn handle(
+        &mut self,
+        api: &mut TwitchEventSubApi,
+        args: String,
+        _ctx: &MessageData,
+    ) -> Result<()> {
         let mut args = args.split_whitespace();
         let gnu = args.next().ok_or(anyhow!("not enough arguments"))?;
         let linux = args.next().ok_or(anyhow!("not enough arguments"))?;
@@ -34,7 +40,9 @@ There really is a {linux}, and these people are using it, but it is just a part 
 "
         );
 
-        Ok(pasta)
+        api.send_chat_message(pasta);
+
+        Ok(())
     }
 
     fn help(&self) -> String {

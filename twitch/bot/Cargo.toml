@@ -10,5 +10,7 @@ serde_json = "1.0.128"
 strum = { version = "0.26.3", features = ["derive"] }
 tokio = { version = "1.40.0", features = ["macros", "process", "rt-multi-thread", "signal"] }
 tokio-util = "0.7.12"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
 twitcheventsub = { git = "https://github.com/Owlkaline/TwitchEventSub-rs", rev = "9685ed14cf0d71627fce75d43607785f3c2cf04a", features = ["logging"] }
 

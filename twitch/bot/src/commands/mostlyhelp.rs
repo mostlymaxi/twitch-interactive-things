@@ -1,6 +1,7 @@
 use crate::commands::{ChatCommand, CommandMap};
 use anyhow::{anyhow, Result};
-use serde_json::Value;
+use tracing::instrument;
+use twitcheventsub::{MessageData, TwitchEventSubApi};
 
 pub struct MostlyHelp {
     cmds: CommandMap,
@@ -25,7 +26,13 @@ impl ChatCommand for MostlyHelp {
         vec!["help".to_owned()]
     }
 
-    fn handle(&mut self, args: String, _ctx: Value) -> Result<String> {
+    #[instrument(skip(self, api, _ctx))]
+    fn handle(
+        &mut self,
+        api: &mut TwitchEventSubApi,
+        args: String,
+        _ctx: &MessageData,
+    ) -> Result<()> {
         let mut args = args.split_whitespace();
         let Some(cmd_name) = args.next() else {
             return Err(anyhow!("no arguments passed"));
@@ -35,11 +42,17 @@ impl ChatCommand for MostlyHelp {
             return Err(anyhow!("too many arguments"));
         }
 
-        Ok(self
+        let help_msg = self
             .cmds
             .get(cmd_name)
             .map(|c| c.borrow().help())
-            .unwrap_or(format!("{cmd_name} does not exist")))
+            .unwrap_or(format!("{cmd_name} does not exist"));
+
+        tracing::debug!(help_msg = %help_msg);
+
+        api.send_chat_message_with_reply(help_msg, None).unwrap();
+
+        Ok(())
     }
 
     fn help(&self) -> String {

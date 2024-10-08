@@ -1,10 +1,11 @@
 mod commands;
 
-use serde_json::Value;
 use tokio::{select, signal};
 use tokio_util::sync::CancellationToken;
-use twitcheventsub::{Subscription, TwitchEventSubApi, TwitchKeys};
+use tracing::instrument;
+use twitcheventsub::{MessageData, Subscription, TwitchEventSubApi, TwitchKeys};
 
+#[instrument]
 fn init_twitch_api() -> TwitchEventSubApi {
     let keys = TwitchKeys::from_secrets_env().unwrap();
 
@@ -15,15 +16,30 @@ fn init_twitch_api() -> TwitchEventSubApi {
         .generate_new_token_if_insufficent_scope(true)
         .generate_new_token_if_none(true)
         .generate_access_token_on_expire(true)
-        .enable_irc("mostlymaxi", "mostlymaxi")
+        // .enable_irc("mostlymaxi", "mostlymaxi")
         .auto_save_load_created_tokens(".user_token.env", ".refresh_token.env")
-        .add_subscriptions(vec![Subscription::PermissionIRCWrite]);
+        .add_subscriptions(vec![
+            Subscription::PermissionSendAnnouncements,
+            Subscription::PermissionDeleteMessage,
+            Subscription::ChatMessage,
+            Subscription::PermissionIRCWrite,
+        ]);
 
     twitch.build().expect("twitch api build")
 }
 
+async fn cancel_on_signal(twitter: CancellationToken) {
+    match signal::ctrl_c().await {
+        Ok(()) => tracing::info!("caught signal. shutting down..."),
+        Err(err) => tracing::error!("unable to listen for shutdown signal: {}", err),
+    }
+
+    twitter.cancel();
+}
+
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
     let mut api = init_twitch_api();
 
     let mut hs = commands::init();
@@ -31,18 +47,12 @@ async fn main() {
 
     let twitter_clone = twitter.clone();
     tokio::spawn(async move {
-        match signal::ctrl_c().await {
-            Ok(()) => {}
-            Err(err) => {
-                eprintln!("Unable to listen for shutdown signal: {}", err);
-            }
-        }
-
-        twitter_clone.cancel();
+        cancel_on_signal(twitter_clone).await;
     });
 
     // pulling all the redeems from twitch
-    let mut c = franz_client::FranzConsumer::new("tits.franz.mostlymaxi.com:8085", "chat")
+    let broker = std::env::var("FRANZ_BROKER").expect("FRANZ_BROKER environment variable set");
+    let mut c = franz_client::FranzConsumer::new(&broker, &"chat".to_owned())
         .await
         .unwrap();
 
@@ -51,11 +61,11 @@ async fn main() {
         m = c.recv() => m
     } {
         let Ok(msg) = msg else { continue };
-        let Ok(msg) = serde_json::from_str::<Value>(&msg) else {
+        let Ok(msg) = serde_json::from_str::<MessageData>(&msg) else {
             continue;
         };
 
-        let args = msg["message"]["text"].to_string();
+        let args = msg.message.text.clone();
         let mut args = args.split_whitespace();
 
         let Some(cmd) = args
@@ -66,6 +76,6 @@ async fn main() {
             continue;
         };
 
-        hs.handle_cmd(cmd, args.collect(), msg);
+        hs.handle_cmd(&mut api, cmd, args.collect(), &msg);
     }
 }
