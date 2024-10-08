@@ -4,6 +4,7 @@ use twitcheventsub::{EventSubError, MessageData, TwitchEventSubApi};
 
 pub mod mostlyhelp;
 pub mod mostlypasta;
+pub mod ping;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
