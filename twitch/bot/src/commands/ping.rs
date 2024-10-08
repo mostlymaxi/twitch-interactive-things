@@ -9,21 +9,71 @@ use tracing::{debug, error, instrument};
 
 use super::ChatCommand;
 
-struct MostlyPing {}
+/// See ```this``` struct for more details on implementing your own command.
+///
+/// Commands are backed by structs, this allows for them to have internal,
+/// mutable state (think counting the number of times the command has been called).
+/// The name of the struct is not terribly important but should be intuitively tied
+/// to the command name.
+///
+/// The ping command doesn't take any state so it can be defined as so:
+///
+/// ```ignore
+/// struct MostlyPing {}
+/// ```
+pub struct MostlyPing {}
 
+/// All commands must implement the ChatCommand trait
+/// (traits are interfaces in rust).
+///
+/// ```ignore
+/// impl ChatCommand for MostlyPing { ... }
+/// ```
 impl ChatCommand for MostlyPing {
+    /// Constructor for your command struct. Initialize
+    /// any internal state that your command will need.
     fn new() -> Self {
         Self {}
     }
 
+    /// A function to get the list "names" of your command.
+    /// This is what will eventually be matched on in twitch chat.
+    ///
+    /// ### example
+    /// in order for the command to be run whenever a user types ```!ping``` we
+    /// must do the following:
+    ///
+    /// ```rs
+    /// fn names() -> Vec<String> {
+    ///     vec!["ping".to_string()]
+    /// }
+    /// ```
+    ///
+    /// Note: the lack of exclamation marks in the name. They are assumed to already be there.
     fn names() -> Vec<String> {
         vec!["ping".to_string()]
     }
 
+    /// function that returns a helpful message when a chatter either does:
+    /// ```!help <command name>``` or the command returns an error
     fn help(&self) -> String {
-        "bot health check".to_string()
+        "usage: !ping".to_string()
     }
 
+    /// Where the magic happens. Use the api and context (bunch of data around the chat message
+    /// that matches your command) to do whatever it is you want your command to do.
+    ///
+    /// Some basic rules involve:
+    /// - no panics, return an error instead
+    /// - limit processing time as much as possible (< 2 seconds)
+    /// - dont spawn background threads / fork
+    /// - make your code readable and well documented
+    /// - be reasonable
+    ///
+    /// Obviously every rule has it's exceptions and will be checked on a case by case basis.
+    ///
+    /// Your goal is to CONVINCE ME that this command is a good idea so it's an exercise in
+    /// clear communication - NOT JUST CODING SKILL
     #[instrument(skip(self, api))]
     fn handle(
         &mut self,
