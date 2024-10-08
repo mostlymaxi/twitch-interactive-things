@@ -1,0 +1,31 @@
+# fly.toml app configuration file generated for tits-franz-server on 2024-09-25T17:17:20-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'tits-franz-server'
+primary_region = 'iad'
+
+[env]
+RUST_LOG = 'trace'
+
+[build]
+
+[[services]]
+internal_port = 8085
+protocol = "tcp"
+auto_stop_machines = "stop"
+auto_start_machines = true
+min_machines_running = 0
+[[services.ports]]
+port = 8085
+
+
+[mounts]
+source = "tits_franz_data"
+destination = "/data"
+
+[[vm]]
+memory = '512mb'
+cpu_kind = 'shared'
+cpus = 1
