@@ -1,7 +1,9 @@
 use crate::commands::{ChatCommand, CommandMap};
 use anyhow::{anyhow, Result};
 use tracing::instrument;
-use twitcheventsub::{MessageData, TwitchEventSubApi};
+use twitcheventsub::MessageData;
+
+use super::TwitchApiContext;
 
 pub struct MostlyHelp {
     cmds: CommandMap,
@@ -15,7 +17,7 @@ impl MostlyHelp {
     }
 }
 
-impl ChatCommand for MostlyHelp {
+impl<T: TwitchApiContext> ChatCommand<T> for MostlyHelp {
     fn new() -> Self {
         Self {
             cmds: CommandMap::new(),
@@ -27,7 +29,7 @@ impl ChatCommand for MostlyHelp {
     }
 
     #[instrument(skip(self, api, ctx))]
-    fn handle(&mut self, api: &mut TwitchEventSubApi, ctx: &MessageData) -> Result<()> {
+    fn handle(&mut self, api: &mut T, ctx: &MessageData) -> Result<()> {
         let mut args = ctx.message.text.split_whitespace();
         let _ = args.next();
 

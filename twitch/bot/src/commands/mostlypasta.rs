@@ -1,15 +1,17 @@
 use std::{thread, time::Duration};
 
 use anyhow::{anyhow, Result};
-use twitcheventsub::{MessageData, TwitchEventSubApi};
+use twitcheventsub::MessageData;
 
 use crate::commands::ChatCommand;
+
+use super::TwitchApiContext;
 
 pub struct MostlyPasta {}
 
 impl MostlyPasta {}
 
-impl ChatCommand for MostlyPasta {
+impl<T: TwitchApiContext> ChatCommand<T> for MostlyPasta {
     fn new() -> Self {
         Self {}
     }
@@ -18,7 +20,7 @@ impl ChatCommand for MostlyPasta {
         vec!["mostlypasta".to_owned()]
     }
 
-    fn handle(&mut self, api: &mut TwitchEventSubApi, ctx: &MessageData) -> Result<()> {
+    fn handle(&mut self, api: &mut T, ctx: &MessageData) -> Result<()> {
         let mut args = ctx.message.text.split_whitespace();
         let _ = args.next();
         let gnu = args.next().ok_or(anyhow!("not enough arguments"))?;
