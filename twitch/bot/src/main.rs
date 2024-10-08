@@ -1,5 +1,6 @@
 mod commands;
 
+use commands::TwitchApiWrapper;
 use franz_client::FranzConsumer;
 use tokio::{select, signal};
 use tokio_util::sync::CancellationToken;
@@ -81,7 +82,7 @@ async fn handle_chat_messages(
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let mut api = init_twitch_api();
+    let mut api = TwitchApiWrapper::Live(init_twitch_api());
     let consumer = init_franz_consumer("chat").await;
 
     let cancel_token = CancellationToken::new();

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use tracing::instrument;
-use twitcheventsub::{MessageData, TwitchEventSubApi};
+use twitcheventsub::{EventSubError, MessageData, TwitchEventSubApi};
 
 pub mod mostlyhelp;
 pub mod mostlypasta;
@@ -16,9 +16,42 @@ pub trait ChatCommand: 'static {
     where
         Self: Sized;
 
-    fn handle(&mut self, api: &mut TwitchEventSubApi, ctx: &MessageData) -> Result<()>;
+    fn handle(&mut self, api: &mut TwitchApiWrapper, ctx: &MessageData) -> Result<()>;
 
     fn help(&self) -> String;
+}
+
+pub struct MockTwitchEventSubApi {}
+
+impl MockTwitchEventSubApi {
+    pub fn init_twitch_api() -> MockTwitchEventSubApi {
+        MockTwitchEventSubApi {}
+    }
+}
+
+pub enum TwitchApiWrapper {
+    Live(TwitchEventSubApi),
+    Test(MockTwitchEventSubApi),
+}
+
+impl TwitchApiWrapper {
+    fn send_chat_message<S: Into<String>>(&mut self, message: S) -> Result<String, EventSubError> {
+        match self {
+            Self::Live(api) => api.send_chat_message(message),
+            Self::Test(_mock) => todo!(),
+        }
+    }
+
+    fn send_chat_message_with_reply<S: Into<String>>(
+        &mut self,
+        message: S,
+        reply_message_parent_id: Option<S>,
+    ) -> Result<String, EventSubError> {
+        match self {
+            Self::Live(api) => self.send_chat_message_with_reply(message, reply_message_parent_id),
+            Self::Test(_mock) => todo!(),
+        }
+    }
 }
 
 type CommandCell = Rc<RefCell<dyn ChatCommand>>;
@@ -46,16 +79,19 @@ impl CommandMap {
     }
 
     #[instrument(skip(self, api, ctx))]
-    pub fn handle_cmd(&mut self, api: &mut TwitchEventSubApi, cmd: &str, ctx: &MessageData) {
+    pub fn handle_cmd(&mut self, api: &mut TwitchApiWrapper, cmd: &str, ctx: &MessageData) {
         match self.get_mut(cmd).map(|c| c.borrow_mut().handle(api, ctx)) {
             None => {
-                api.send_chat_message_with_reply(
+                let _ = api.send_chat_message_with_reply(
                     format!("{cmd} does not exist"),
                     Some(ctx.message_id.clone()),
                 );
             }
             Some(Err(e)) => {
-                api.send_chat_message_with_reply(format!("err: {e}"), Some(ctx.message_id.clone()));
+                let _ = api.send_chat_message_with_reply(
+                    format!("err: {e}"),
+                    Some(ctx.message_id.clone()),
+                );
             }
             Some(Ok(())) => {}
         }
