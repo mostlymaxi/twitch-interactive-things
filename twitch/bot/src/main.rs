@@ -22,7 +22,6 @@ fn init_twitch_api() -> TwitchEventSubApi {
             Subscription::PermissionSendAnnouncements,
             Subscription::PermissionDeleteMessage,
             Subscription::ChatMessage,
-            Subscription::PermissionIRCWrite,
         ]);
 
     twitch.build().expect("twitch api build")
