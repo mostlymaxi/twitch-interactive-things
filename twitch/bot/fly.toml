@@ -12,6 +12,7 @@ primary_region = 'iad'
 PORT = '8080'
 RUST_LOG = 'debug'
 FRANZ_BROKER = 'tits.franz.mostlymaxi.com:8085'
+TITS_BOT_ID = '1124612654'
 
 [[services]]
 internal_port = 8080

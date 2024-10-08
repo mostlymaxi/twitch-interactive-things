@@ -52,6 +52,7 @@ async fn main() {
 
     // pulling all the redeems from twitch
     let broker = std::env::var("FRANZ_BROKER").expect("FRANZ_BROKER environment variable set");
+    let bot_id = std::env::var("TITS_BOT_ID").expect("TITS_BOT_ID environment variable set");
     let mut c = franz_client::FranzConsumer::new(&broker, &"chat".to_owned())
         .await
         .unwrap();
@@ -64,6 +65,10 @@ async fn main() {
         let Ok(msg) = serde_json::from_str::<MessageData>(&msg) else {
             continue;
         };
+
+        if msg.chatter.id == bot_id {
+            continue;
+        }
 
         let args = msg.message.text.clone();
         let mut args = args.split_whitespace();
