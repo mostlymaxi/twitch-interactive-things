@@ -19,6 +19,7 @@ pub mod kofi;
 pub mod mostlybot;
 pub mod mostlypasta;
 pub mod ping;
+pub mod count;
 pub mod pong;
 
 // ----------------------------------------------------------------------------
@@ -132,6 +133,7 @@ pub fn init() -> CommandMap {
     map.insert(pong::MostlyPong::new());
     map.insert(commands::MostlyCommands::new());
     map.insert(mostlybot::MostlyBot::new());
+    map.insert(count::Count::new());
     map.insert(kofi::MostlyKofi::new());
 
     // help is special
