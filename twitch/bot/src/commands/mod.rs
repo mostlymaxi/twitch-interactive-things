@@ -15,6 +15,7 @@ pub mod commands;
 //
 // add your command module to this list:
 pub mod help;
+pub mod mostlybot;
 pub mod mostlypasta;
 pub mod ping;
 
@@ -127,6 +128,7 @@ pub fn init() -> CommandMap {
     map.insert(mostlypasta::MostlyPasta::new());
     map.insert(ping::MostlyPing::new());
     map.insert(commands::MostlyCommands::new());
+    map.insert(mostlybot::MostlyBot::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
