@@ -31,7 +31,7 @@ impl ChatCommand for MostlyBot {
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
         match api.send_chat_message_with_reply(
-            "https://github.com/mostlymaxi/twitch-interactive-things/tree/main/twitch/bot",
+            "contribute to the mostlybot here!: https://github.com/mostlymaxi/twitch-interactive-things/tree/main/twitch/bot",
             Some(&ctx.message_id),
         ) {
             Ok(s) => {
