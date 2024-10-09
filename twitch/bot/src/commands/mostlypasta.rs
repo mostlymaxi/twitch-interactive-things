@@ -1,6 +1,6 @@
 //! makes custom gnu/linux copy pasta
 //!
-//! usage: ```!mostlypasta <gnu> <linux>``
+//! usage: ```!mostlypasta <gnu> <linux>```
 //!
 //! author: mostlymaxi
 
