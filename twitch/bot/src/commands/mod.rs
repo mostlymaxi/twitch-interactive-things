@@ -141,6 +141,10 @@ pub fn init() -> CommandMap {
     map.insert(count::Count::new());
     map.insert(kofi::MostlyKofi::new());
     map.insert(progress::Progress::new());
+    map.insert(youtube::MostlyYoutube::new());
+    map.insert(git::MostlyGit::new());
+    map.insert(discord::MostlyDiscord::new());
+    map.insert(vods::MostlyVods::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
