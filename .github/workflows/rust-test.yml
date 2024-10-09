@@ -1,10 +1,12 @@
-name: Rust
+name: MostlyBot Rust Test
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  paths:
+    - twitch/bot
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,6 +19,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build
-      run: cargo build --verbose
+      run: cd twitch/bot && cargo build --verbose
     - name: Run tests
-      run: cargo test --verbose
+      run: cd twitch/bot && cargo test --verbose
+
