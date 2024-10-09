@@ -1,3 +1,8 @@
+//! returns maxi's kofi link
+//!
+//! usage: ```!kofi```
+//!
+//! author: mostlymaxi
 use super::ChatCommand;
 
 pub struct MostlyKofi {}
