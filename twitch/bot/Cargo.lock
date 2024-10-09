@@ -1344,7 +1344,7 @@ dependencies = [
 [[package]]
 name = "twitcheventsub"
 version = "0.1.4"
-source = "git+https://github.com/Owlkaline/TwitchEventSub-rs?rev=9685ed14cf0d71627fce75d43607785f3c2cf04a#9685ed14cf0d71627fce75d43607785f3c2cf04a"
+source = "git+https://github.com/mostlymaxi/TwitchEventSub-rs#1fabe189487a58e39fca9e669fa94a60481bfebe"
 dependencies = [
  "attohttpc",
  "curl",
@@ -1362,7 +1362,7 @@ dependencies = [
 [[package]]
 name = "twitcheventsub-structs"
 version = "0.1.2"
-source = "git+https://github.com/Owlkaline/TwitchEventSub-rs?rev=9685ed14cf0d71627fce75d43607785f3c2cf04a#9685ed14cf0d71627fce75d43607785f3c2cf04a"
+source = "git+https://github.com/mostlymaxi/TwitchEventSub-rs#1fabe189487a58e39fca9e669fa94a60481bfebe"
 dependencies = [
  "serde",
  "serde_json",
