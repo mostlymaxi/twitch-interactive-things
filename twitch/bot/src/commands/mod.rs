@@ -15,6 +15,7 @@ pub mod commands;
 //
 // add your command module to this list:
 pub mod help;
+pub mod kofi;
 pub mod mostlybot;
 pub mod mostlypasta;
 pub mod ping;
@@ -129,6 +130,7 @@ pub fn init() -> CommandMap {
     map.insert(ping::MostlyPing::new());
     map.insert(commands::MostlyCommands::new());
     map.insert(mostlybot::MostlyBot::new());
+    map.insert(kofi::MostlyKofi::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
@@ -228,7 +230,7 @@ mod test {
                 println!("Invalid message format: {}", text);
                 continue;
             };
-
+kofi
             if chat_msg_data.chatter.id == BOT_ID {
                 println!("Message sent by bot: {}", text);
                 continue;
