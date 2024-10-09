@@ -3,10 +3,10 @@ name: MostlyBot Rust Test
 on:
   push:
     branches: [ "main" ]
-    paths: [ "twitch/bot" ]
+    paths: [ "twitch/bot/**" ]
   pull_request:
     branches: [ "main" ]
-    paths: [ "twitch/bot" ]
+    paths: [ "twitch/bot/**" ]
 
 env:
   CARGO_TERM_COLOR: always
