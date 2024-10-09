@@ -56,7 +56,13 @@ impl TwitchApiWrapper {
             Self::Live(api) => {
                 api.send_chat_message_with_reply(message, reply_message_parent_id.map(S::into))
             }
-            Self::Test(_mock) => todo!(),
+            Self::Test(_mock) => {
+                match reply_message_parent_id {
+                    Some(id) => println!("@{} {}", id.into(), message.into()),
+                    None => println!("MockApi: {}", message.into()),
+                }
+                Ok(String::new())
+            }
         }
     }
 }
@@ -117,4 +123,104 @@ pub fn init() -> CommandMap {
     map.insert(help);
 
     map
+}
+
+// ----------------------------------------------------------------------------
+
+#[cfg(test)]
+mod test {
+    use super::{ping, ChatCommand, CommandMap, MockTwitchEventSubApi, TwitchApiWrapper};
+    use serde_json::json;
+    use twitcheventsub::MessageData;
+
+    /// Helper function to create a mock chat message JSON object
+    /// Simulates a twitch chat message
+    fn create_chat_msg(cmd: &str, chatter_id: &str) -> serde_json::Value {
+        json!({
+            "broadcaster_user_id": "938429017",
+            "broadcaster_user_name": "mostlymaxi",
+            "broadcaster_user_login": "mostlymaxi",
+            "chatter_user_id": format!("{chatter_id}"),
+            "chatter_user_name": "mostlymaxi",
+            "chatter_user_login": "mostlymaxi",
+            "message_id": "3104f083-2bdb-4d6a-bb5d-30b407876ea4",
+            "message": {
+                "text": format!("{cmd}"),
+                "fragments": [
+                    {
+                        "type": "text",
+                        "text": "!ping",
+                        "cheermote": null,
+                        "emote": null,
+                        "mention": null
+                    }
+                ]
+            },
+            "color": "#FF0000",
+            "badges": [
+                {
+                    "set_id": "broadcaster",
+                    "id": "1",
+                    "info": ""
+                },
+                {
+                    "set_id": "subscriber",
+                    "id": "0",
+                    "info": "3"
+                }
+            ],
+            "message_type": "text",
+            "cheer": null,
+            "reply": null,
+            "channel_points_custom_reward_id": null,
+            "channel_points_animation_id": null
+        })
+    }
+
+    /// Simulates a series of chat messages to test the command handling functionality
+    /// Can be run with `cargo test main -- --show-output` to display the output
+    #[test]
+    fn main() {
+        let mut commands = CommandMap::new();
+        // Add available chat commands
+        commands.insert(ping::MostlyPing::new());
+
+        let mut api = TwitchApiWrapper::Test(MockTwitchEventSubApi::init_twitch_api());
+
+        // Simulate chat messages
+        const BOT_ID: &str = "id_bot";
+
+        let chat_messages = vec![
+            create_chat_msg("!ping", "id_ping0"),
+            create_chat_msg("!ping with args", "id_ping1"),
+            create_chat_msg("!mostlypasta", "id_pasta"),
+            create_chat_msg("!non_existent_command", "id_phantom"),
+            create_chat_msg("ping", "id_invalid_command"),
+            create_chat_msg("!ping", BOT_ID),
+        ];
+
+        for chat_msg in chat_messages {
+            let chat_msg_data: MessageData = serde_json::from_value(chat_msg).unwrap();
+
+            // same parsing and handling as `crate::handle_chat_messages`
+            let text = chat_msg_data.message.text.clone();
+            let mut args = text.split_whitespace();
+
+            let Some(cmd) = args
+                .next()
+                .filter(|cmd| cmd.starts_with('!'))
+                .and_then(|cmd| cmd.strip_prefix('!'))
+                .map(|cmd| cmd.to_lowercase())
+            else {
+                println!("Invalid message format: {}", text);
+                continue;
+            };
+
+            if chat_msg_data.chatter.id == BOT_ID {
+                println!("Message sent by bot: {}", text);
+                continue;
+            }
+            commands.handle_cmd(&mut api, &cmd, &chat_msg_data);
+        }
+    }
 }
