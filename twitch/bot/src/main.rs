@@ -1,11 +1,13 @@
 #![doc = include_str!("../README.md")]
+use std::time::Duration;
+
 use mostlybot::*;
 
 use commands::TwitchApiWrapper;
 use franz_client::FranzConsumer;
-use tokio::{select, signal};
+use tokio::{select, signal, time};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, instrument};
+use tracing::{debug, error, info, instrument};
 use twitcheventsub::{MessageData, Subscription, TwitchEventSubApi, TwitchKeys};
 
 // ----------------------------------------------------------------------------
@@ -32,11 +34,24 @@ fn init_twitch_api() -> TwitchEventSubApi {
     twitch.build().expect("twitch api build")
 }
 
+#[instrument]
 async fn init_franz_consumer(topic: &str) -> FranzConsumer {
     let broker = std::env::var("FRANZ_BROKER").expect("FRANZ_BROKER environment variable set");
-    FranzConsumer::new(&broker, &topic.to_owned())
+    let mut consumer = FranzConsumer::new(&broker, &topic.to_owned())
         .await
-        .unwrap()
+        .unwrap();
+
+    loop {
+        if time::timeout(Duration::from_millis(500), consumer.recv())
+            .await
+            .is_err()
+        {
+            debug!("franz consumer caught up on messages");
+            break;
+        }
+    }
+
+    consumer
 }
 
 async fn cancel_on_signal(token: CancellationToken) {
