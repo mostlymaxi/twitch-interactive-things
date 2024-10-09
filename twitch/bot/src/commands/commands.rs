@@ -30,9 +30,10 @@ impl ChatCommand for MostlyCommands {
         api: &mut super::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
-        match api
-            .send_chat_message_with_reply("https://docs.rs/mostlybot/latest", Some(&ctx.message_id))
-        {
+        match api.send_chat_message_with_reply(
+            "https://docs.rs/mostlybot/latest/mostlybot/commands/index.html",
+            Some(&ctx.message_id),
+        ) {
             Ok(s) => {
                 debug!(reply = %s);
                 Ok(())

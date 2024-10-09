@@ -1,7 +1,7 @@
 [package]
 name = "mostlybot"
 description = "mostlybot is the twitch bot that I use for my stream on twitch"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 repository = "https://github.com/mostlymaxi/twitch-interactive-things/tree/main/twitch/bot"
 documentation = "https://docs.rs/mostlybot"
