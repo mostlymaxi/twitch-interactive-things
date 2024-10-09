@@ -28,7 +28,9 @@ impl ChatCommand for MostlyBan {
         api: &mut super::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
-        let arg: String = ctx.message.text.split_whitespace().skip(1).collect();
+        let arg: Vec<_> = ctx.message.text.split_whitespace().skip(1).collect();
+        let arg: String = arg.join(" ");
+
         if arg.is_empty() {
             Err(anyhow!("No argument provided"))?
         }
