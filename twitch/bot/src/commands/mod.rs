@@ -21,6 +21,7 @@ pub mod mostlybot;
 pub mod mostlypasta;
 pub mod ping;
 pub mod pong;
+pub mod ban;
 
 // ----------------------------------------------------------------------------
 
@@ -131,6 +132,7 @@ pub fn init() -> CommandMap {
     map.insert(mostlypasta::MostlyPasta::new());
     map.insert(ping::MostlyPing::new());
     map.insert(pong::MostlyPong::new());
+    map.insert(ban::MostlyBan::new());
     map.insert(commands::MostlyCommands::new());
     map.insert(mostlybot::MostlyBot::new());
     map.insert(count::Count::new());
