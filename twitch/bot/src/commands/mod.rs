@@ -230,7 +230,7 @@ mod test {
                 println!("Invalid message format: {}", text);
                 continue;
             };
-kofi
+
             if chat_msg_data.chatter.id == BOT_ID {
                 println!("Message sent by bot: {}", text);
                 continue;
