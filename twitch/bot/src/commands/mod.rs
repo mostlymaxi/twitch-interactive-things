@@ -15,6 +15,8 @@ pub mod commands;
 //
 // add your command module to this list:
 pub mod count;
+pub mod discord;
+pub mod git;
 pub mod help;
 pub mod kofi;
 pub mod mostlybot;
@@ -22,6 +24,8 @@ pub mod mostlypasta;
 pub mod ping;
 pub mod pong;
 pub mod progress;
+pub mod vods;
+pub mod youtube;
 
 // ----------------------------------------------------------------------------
 
@@ -137,6 +141,10 @@ pub fn init() -> CommandMap {
     map.insert(count::Count::new());
     map.insert(kofi::MostlyKofi::new());
     map.insert(progress::Progress::new());
+    map.insert(youtube::MostlyYoutube::new());
+    map.insert(git::MostlyGit::new());
+    map.insert(discord::MostlyDiscord::new());
+    map.insert(vods::MostlyVods::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
