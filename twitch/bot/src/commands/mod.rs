@@ -126,6 +126,7 @@ pub fn init() -> CommandMap {
     // most commands will just be inserted
     map.insert(mostlypasta::MostlyPasta::new());
     map.insert(ping::MostlyPing::new());
+    map.insert(commands::MostlyCommands::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
