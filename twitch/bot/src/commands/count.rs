@@ -1,33 +1,28 @@
-//! TODO: < short message explaining command >
+//! be lazy and have the computer count for you!
 //!
-//! TODO: usage: ```!<name> <args>```
+//! usage: ```!count```
 //!
-//! TODO: author: <twitch name>
+//! author: lunispang
 
 use tracing::instrument;
 
 use super::ChatCommand;
 
-// TODO: rename struct
 pub struct Count(usize);
 
-// TODO: implement the ChatCommand trait for your CommandStruct
 impl ChatCommand for Count {
     fn new() -> Self {
         Self(0)
     }
 
-    // TODO: add command "names"
     fn names() -> Vec<String> {
         vec!["count".to_string()]
     }
 
-    // TODO: create useful help message
     fn help(&self) -> String {
         "usage: !<name> <args>".to_string()
     }
 
-    // TODO: do stuff
     #[instrument(skip(self, api))]
     fn handle(
         &mut self,
