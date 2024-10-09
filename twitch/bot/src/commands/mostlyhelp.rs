@@ -1,3 +1,9 @@
+//! special help command that gets info on all other commands
+//!
+//! usage: ```!help <command>```
+//!
+//! author: mostlymaxi
+
 use crate::commands::{ChatCommand, CommandMap};
 use anyhow::{anyhow, Result};
 use tracing::instrument;
