@@ -679,6 +679,7 @@ version = "0.1.3"
 dependencies = [
  "anyhow",
  "franz-client",
+ "rand",
  "serde_json",
  "tokio",
  "tokio-util",
