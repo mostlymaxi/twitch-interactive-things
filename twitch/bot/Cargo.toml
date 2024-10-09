@@ -26,4 +26,4 @@ tracing-subscriber = "0.3.18"
 
 # this is just my upstream dev branch of owl's lovely library! :D
 # feel free to contribute to this as well <3
-twitcheventsub = { git = "https://github.com/mostlymaxi/TwitchEventSub-rs" }
+twitcheventsub = { version = "0.1.4", git = "https://github.com/mostlymaxi/TwitchEventSub-rs" }
