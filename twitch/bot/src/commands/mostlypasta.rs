@@ -1,3 +1,9 @@
+//! makes custom gnu/linux copy pasta
+//!
+//! usage: ```!mostlypasta <gnu> <linux>```
+//!
+//! author: mostlymaxi
+
 use std::{thread, time::Duration};
 
 use anyhow::{anyhow, Result};

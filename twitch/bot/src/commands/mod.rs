@@ -1,10 +1,21 @@
+//! module containing all commands
 use anyhow::Result;
 use tracing::instrument;
 use twitcheventsub::{EventSubError, MessageData, TwitchEventSubApi};
 
+#[allow(clippy::module_inception)]
+pub mod commands;
+
 // ----------------------------------------------------------------------------
-// add your command module here:
-pub mod mostlyhelp;
+// NOTE: modules must match the command you expect people to use in chat (or at least one of them).
+// For example: mostlypasta -> !mostlypasta <gnu> <linux>
+//
+// but this does not apply to the internal struct.
+//
+//
+// add your command module to this list:
+pub mod help;
+pub mod mostlybot;
 pub mod mostlypasta;
 pub mod ping;
 
@@ -116,9 +127,11 @@ pub fn init() -> CommandMap {
     // most commands will just be inserted
     map.insert(mostlypasta::MostlyPasta::new());
     map.insert(ping::MostlyPing::new());
+    map.insert(commands::MostlyCommands::new());
+    map.insert(mostlybot::MostlyBot::new());
 
     // help is special
-    let mut help = mostlyhelp::MostlyHelp::new();
+    let mut help = help::MostlyHelp::new();
     help.init(map.clone());
     map.insert(help);
 
