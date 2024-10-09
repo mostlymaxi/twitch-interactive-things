@@ -14,12 +14,12 @@ pub mod commands;
 //
 //
 // add your command module to this list:
+pub mod count;
 pub mod help;
 pub mod kofi;
 pub mod mostlybot;
 pub mod mostlypasta;
 pub mod ping;
-pub mod count;
 pub mod pong;
 
 // ----------------------------------------------------------------------------

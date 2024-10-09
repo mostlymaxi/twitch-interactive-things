@@ -675,7 +675,7 @@ dependencies = [
 
 [[package]]
 name = "mostlybot"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "franz-client",
