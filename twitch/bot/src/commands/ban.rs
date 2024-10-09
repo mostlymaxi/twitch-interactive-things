@@ -1,12 +1,12 @@
 //! ban command
 //!
-//! usage: ```!ban <arg>```
+//! usage: ```!ban <arguments>```
 //!
 //! author: Cathyprime
 
+use super::ChatCommand;
 use anyhow::anyhow;
 use tracing::{debug, error};
-use super::ChatCommand;
 
 pub struct MostlyBan {}
 
@@ -19,18 +19,22 @@ impl ChatCommand for MostlyBan {
         vec!["ban".to_string()]
     }
 
+    fn help(&self) -> String {
+        "usage: !ban <arguments>".to_string()
+    }
+
     fn handle(
         &mut self,
         api: &mut super::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
-        let arg = match ctx.message.text.split_whitespace().nth(1) {
-            Some(a) => a.replace("@", ""),
-            None => Err(anyhow!("No argument provided"))?,
-        };
-        let msg = format!("{} has been banned", arg);
-        match api.send_chat_message_with_reply(&msg, Some(&ctx.message_id))
-        {
+        let arg: String = ctx.message.text.split_whitespace().skip(1).collect();
+        if arg.is_empty() {
+            Err(anyhow!("No argument provided"))?
+        }
+        let msg = format!("{} has been banned", arg.trim());
+
+        match api.send_chat_message_with_reply(&msg, Some(&ctx.message_id)) {
             Ok(s) => {
                 debug!(reply = %s);
                 Ok(())
@@ -40,10 +44,6 @@ impl ChatCommand for MostlyBan {
                 Err(anyhow!("{:?}", e))
             }
         }
-    }
-
-    fn help(&self) -> String {
-        "usage: !ban <arg>".to_string()
     }
 }
 
@@ -71,6 +71,17 @@ mod test {
     }
 
     #[test]
+    fn handle_many() {
+        let mut api = TwitchApiWrapper::Test(MockTwitchEventSubApi::init_twitch_api());
+        let mut cmd = MostlyBan::new();
+
+        let test_msg = message!("!ban rust users Kappa");
+
+        let ctx = serde_json::from_str(test_msg).unwrap();
+        cmd.handle(&mut api, &ctx).unwrap();
+    }
+
+    #[test]
     fn missing_arg() {
         let mut api = TwitchApiWrapper::Test(MockTwitchEventSubApi::init_twitch_api());
         let mut cmd = MostlyBan::new();
@@ -78,6 +89,9 @@ mod test {
         let test_msg = message!("!ban ");
 
         let ctx = serde_json::from_str(test_msg).unwrap();
-        assert_eq!(cmd.handle(&mut api, &ctx).unwrap_err().to_string(), "No argument provided")
+        assert_eq!(
+            cmd.handle(&mut api, &ctx).unwrap_err().to_string(),
+            "No argument provided"
+        )
     }
 }
