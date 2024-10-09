@@ -20,7 +20,7 @@ impl ChatCommand for Count {
     }
 
     fn help(&self) -> String {
-        "usage: !<name> <args>".to_string()
+        "usage: !count".to_string()
     }
 
     #[instrument(skip(self, api))]
