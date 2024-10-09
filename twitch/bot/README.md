@@ -1,6 +1,6 @@
 # MostlyBot
 
-The mostlybot is the twitch bot that I use for my stream @ <https://twitch.tv/mostlymaxi>. My goal for this boat is to make as easy as possible to contribute to as a viewer!
+The mostlybot is the twitch bot that I use for my stream @ <https://twitch.tv/mostlymaxi>. My goal for this bot is to make as easy as possible to contribute to as a viewer!
 
 so...
 
