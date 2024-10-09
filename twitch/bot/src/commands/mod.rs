@@ -19,6 +19,7 @@ pub mod discord;
 pub mod git;
 pub mod help;
 pub mod kofi;
+pub mod lurk;
 pub mod mostlybot;
 pub mod mostlypasta;
 pub mod ping;
