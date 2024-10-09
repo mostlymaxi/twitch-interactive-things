@@ -18,6 +18,7 @@ pub mod help;
 pub mod mostlybot;
 pub mod mostlypasta;
 pub mod ping;
+pub mod count;
 
 // ----------------------------------------------------------------------------
 
@@ -129,6 +130,7 @@ pub fn init() -> CommandMap {
     map.insert(ping::MostlyPing::new());
     map.insert(commands::MostlyCommands::new());
     map.insert(mostlybot::MostlyBot::new());
+    map.insert(count::Count::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
