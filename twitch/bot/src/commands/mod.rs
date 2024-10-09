@@ -1,3 +1,4 @@
+//! module containing all commands
 use anyhow::Result;
 use tracing::instrument;
 use twitcheventsub::{EventSubError, MessageData, TwitchEventSubApi};
