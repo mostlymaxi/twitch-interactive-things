@@ -1,5 +1,5 @@
 #![doc = include_str!("../README.md")]
-pub mod commands;
+use mostlybot::*;
 
 use commands::TwitchApiWrapper;
 use franz_client::FranzConsumer;
