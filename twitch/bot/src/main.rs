@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use mostlybot::*;
 
-use commands::TwitchApiWrapper;
+use api::TwitchApiWrapper;
 use franz_client::FranzConsumer;
 use tokio::{select, signal, time};
 use tokio_util::sync::CancellationToken;

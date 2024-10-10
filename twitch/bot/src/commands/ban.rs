@@ -59,7 +59,7 @@ mod test {
     }
 
     use super::*;
-    use crate::commands::{MockTwitchEventSubApi, TwitchApiWrapper};
+    use crate::api::{MockTwitchEventSubApi, TwitchApiWrapper};
 
     #[test]
     fn handle() {
