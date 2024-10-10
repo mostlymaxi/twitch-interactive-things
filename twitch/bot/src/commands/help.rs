@@ -11,6 +11,8 @@ use twitcheventsub::MessageData;
 
 use super::TwitchApiWrapper;
 
+pub const HELP_COOLDOWN_SECS: u64 = 3;
+
 pub struct MostlyHelp {
     cmds: CommandMap,
 }
@@ -40,22 +42,23 @@ impl ChatCommand for MostlyHelp {
         let _ = args.next();
 
         let Some(cmd_name) = args.next() else {
-            return Err(anyhow!("no arguments passed"));
+            let _ = api.send_chat_message_with_reply(
+                format!("usage: {}", self.help()),
+                Some(ctx.message_id.clone()),
+            );
+            let _ = api.send_chat_message_with_reply(
+                "[WARN] if you're looking for the list of commands try: !commands",
+                Some(&ctx.message_id),
+            );
+
+            return Ok(());
         };
 
         if args.next().is_some() {
             return Err(anyhow!("too many arguments"));
         }
 
-        let help_msg = self
-            .cmds
-            .get(cmd_name)
-            .map(|c| c.borrow().help())
-            .unwrap_or(format!("{cmd_name} does not exist"));
-
-        tracing::debug!(help_msg = %help_msg);
-
-        api.send_chat_message_with_reply(help_msg, None).unwrap();
+        self.cmds.get_mut(cmd_name).map(|c| c.borrow().help());
 
         Ok(())
     }
