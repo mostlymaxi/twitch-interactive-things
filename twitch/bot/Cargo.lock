@@ -680,6 +680,7 @@ dependencies = [
  "anyhow",
  "franz-client",
  "rand",
+ "serde",
  "serde_json",
  "tokio",
  "tokio-util",
