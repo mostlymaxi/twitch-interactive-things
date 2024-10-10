@@ -3,6 +3,7 @@ use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
     rc::Rc,
+    time::Duration,
 };
 use tracing::instrument;
 use twitcheventsub::MessageData;
@@ -113,6 +114,7 @@ enum ChatNotification {
     NotACommand,
     InvalidCommand,
     SpamDetected,
+    CommandCooldown(String, Duration),
     CommandSentByBot(String),
     CommandDoesNotExist(String),
     HandleError(String, String),
@@ -131,6 +133,11 @@ fn notify_chat(api: &mut TwitchApiWrapper, ctx: &MessageData, notification: Chat
                 ctx.message.text
             )
         }
+        ChatNotification::CommandCooldown(cmd_name, duration) => format!(
+            "\"{}\" is on cooldown, wait {:.1} seconds",
+            cmd_name,
+            duration.as_secs_f32()
+        ),
         ChatNotification::CommandSentByBot(cmd_name) => format!("\"{}\" sent by bot", cmd_name),
         ChatNotification::CommandDoesNotExist(cmd_name) => {
             format!("\"{}\" does not exist", cmd_name)
@@ -162,9 +169,8 @@ pub fn handle_command_if_applicable(
     bot_id: &str,
     spam_check: &mut SpamCheck,
 ) {
-    // Check if the user is sending commands too quickly
-    if spam_check.check_spam(&ctx.chatter.id) {
-        notify_chat(api, ctx, ChatNotification::SpamDetected);
+    // Ignore commands sent by the bot itself
+    if ctx.chatter.id == bot_id {
         return;
     }
 
@@ -183,15 +189,9 @@ pub fn handle_command_if_applicable(
         CommandParseResult::ValidCommand(cmd_name, args) => (cmd_name, args),
     };
 
-    // Ignore commands sent by the bot itself
-    if ctx.chatter.id == bot_id {
-        if let TwitchApiWrapper::Test(_) = api {
-            notify_chat(
-                api,
-                ctx,
-                ChatNotification::CommandSentByBot(cmd_name.clone()),
-            );
-        }
+    // Check if the user is sending commands too quickly
+    if spam_check.check_spam(&ctx.chatter.id) {
+        notify_chat(api, ctx, ChatNotification::SpamDetected);
         return;
     }
 
@@ -205,7 +205,19 @@ pub fn handle_command_if_applicable(
         return;
     };
 
-    if let Err(err) = cmd.borrow_mut().handle(api, ctx) {
+    let mut cmd = cmd.borrow_mut();
+
+    // Check if the command is under cooldown
+    if let Some(duration) = spam_check.check_command_cooldown(&cmd_name, cmd.cooldown()) {
+        notify_chat(
+            api,
+            ctx,
+            ChatNotification::CommandCooldown(cmd_name, duration),
+        );
+        return;
+    }
+
+    if let Err(err) = cmd.handle(api, ctx) {
         notify_chat(
             api,
             ctx,
