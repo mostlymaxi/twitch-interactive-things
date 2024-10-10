@@ -28,6 +28,7 @@ pub mod pong;
 pub mod progress;
 pub mod vods;
 pub mod youtube;
+pub mod tictactoe;
 
 // ----------------------------------------------------------------------------
 
@@ -78,6 +79,7 @@ pub fn init() -> CommandMap {
     map.insert(vods::MostlyVods::new());
     map.insert(lurk::Lurk::new());
     map.insert(bot_time::BotTime::new());
+    map.insert(tictactoe::TicTacToe::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
