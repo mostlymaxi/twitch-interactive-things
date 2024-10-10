@@ -182,11 +182,11 @@ fn minimax(board: &Board) -> (usize, i8) {
         _ => return (0, 0),
     };
     for mve in possible {
-        let mut new_board = board;
+        let mut new_board = board.clone();
         new_board.place(mve);
         match new_board.get_state() {
-            State::Turn(m) => {
-                results.push((mve, -minimax(new_board)));
+            State::Turn(_) => {
+                results.push((mve, -minimax(&new_board).1));
             }
             State::Tie => results.push((mve, 0)),
             State::Winner(m) => results.push((mve, m.to_value() * player.to_value())),
@@ -228,7 +228,7 @@ impl ChatCommand for TicTacToe {
             _ => {
                 if let Some(arg) = arg {
                     match arg.chars().next() {
-                        Some(c @ '1'..'9') => {
+                        Some(c @ '1'..='9') => {
                             if !self.players.contains_key(&ctx.chatter.id) {
                                 self.players.insert(ctx.chatter.id.clone(), Board::new());
                             }
