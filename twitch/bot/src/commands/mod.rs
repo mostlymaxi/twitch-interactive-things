@@ -24,10 +24,11 @@ pub mod mostlypasta;
 pub mod ping;
 pub mod pong;
 pub mod progress;
+pub mod rewrite;
+pub mod tictactoe;
 pub mod uwu;
 pub mod vods;
 pub mod youtube;
-pub mod rewrite;
 
 // ----------------------------------------------------------------------------
 
