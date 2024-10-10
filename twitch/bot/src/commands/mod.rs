@@ -26,7 +26,6 @@ pub mod pong;
 pub mod progress;
 pub mod vods;
 pub mod youtube;
-pub mod bot_time;
 pub mod rewrite;
 
 // ----------------------------------------------------------------------------
