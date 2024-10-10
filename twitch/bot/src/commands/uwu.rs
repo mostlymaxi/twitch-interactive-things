@@ -5,7 +5,7 @@
 //! I have no clue if the thing this is running on has persistent storage,
 //! so there is a somewhat big list of default kaomoji.
 //!
-//! usage: ```!uwu``` ```!uwu [kaomoji]``` ```!uwu remove ?[kaomoji / index]```
+//! usage: ```!uwu ?[index]``` ```!uwu [kaomoji]``` ```!uwu remove ?[kaomoji / index]```
 //!
 //! author: vulae
 
@@ -49,10 +49,23 @@ impl Default for Kaomoji {
 struct KaomojiList(Vec<Kaomoji>);
 
 impl KaomojiList {
+    fn count(&self) -> usize {
+        self.0.len()
+    }
+
     fn random(&self) -> Kaomoji {
         self.0
             .choose(&mut rand::thread_rng())
             .map_or(Kaomoji::default(), |v| v.clone())
+    }
+
+    fn get_index(&self, index: isize) -> Option<Kaomoji> {
+        let index = if index >= 0 {
+            index as usize
+        } else {
+            (self.0.len() as isize - isize::abs(index)) as usize
+        };
+        self.0.get(index).cloned()
     }
 
     fn contains(&self, kaomoji: &str) -> bool {
@@ -78,7 +91,7 @@ impl KaomojiList {
         let index = if index >= 0 {
             index as usize
         } else {
-            (isize::abs(index) - 1) as usize
+            (self.0.len() as isize - isize::abs(index)) as usize
         };
         if index < self.0.len() {
             Some(self.0.remove(index))
@@ -125,6 +138,7 @@ impl Default for KaomojiList {
 #[derive(Debug, PartialEq)]
 enum MostlyUwUArgs {
     DisplayRandom,
+    DisplayIndex { index: isize },
     AddKaomoji { kaomoji: String },
     RemoveKaomoji { kaomoji: String },
     RemoveIndex { index: isize },
@@ -160,6 +174,8 @@ impl TryFrom<&twitcheventsub::MessageData> for MostlyUwUArgs {
                         kaomoji: rest.trim().to_owned(),
                     })
                 }
+            } else if let Ok(index) = first.parse::<isize>() {
+                Ok(MostlyUwUArgs::DisplayIndex { index })
             } else {
                 Ok(MostlyUwUArgs::AddKaomoji {
                     kaomoji: content.trim().to_owned(),
@@ -212,7 +228,7 @@ impl ChatCommand for MostlyUwU {
     }
 
     fn help(&self) -> String {
-        "Responds UwU kaomoji\nusage: \"!uwu\" - Random kaomoji\n\"!uwu [kaomoji]\" - Add kaomoji\n\"!uwu remove ?[kaomoji / index]\" - Remove kaomoji".to_string()
+        "Responds UwU kaomoji\nusage: \"!uwu ?[index]\" - Random kaomoji\n\"!uwu [kaomoji]\" - Add kaomoji\n\"!uwu remove ?[kaomoji / index]\" - Remove kaomoji".to_string()
     }
 
     #[instrument(skip(self, api))]
@@ -241,6 +257,20 @@ impl ChatCommand for MostlyUwU {
             MostlyUwUArgs::DisplayRandom => {
                 let kaomoji = kaomoji_list.random();
                 let _ = api.send_chat_message_with_reply(&kaomoji.string, Some(&ctx.message_id));
+            }
+            MostlyUwUArgs::DisplayIndex { index } => {
+                if let Some(kaomoji) = kaomoji_list.get_index(index) {
+                    let _ =
+                        api.send_chat_message_with_reply(&kaomoji.string, Some(&ctx.message_id));
+                } else {
+                    let _ = api.send_chat_message_with_reply(
+                        &format!(
+                            "Index out of bounds ({}), oh no (╥﹏╥)",
+                            kaomoji_list.count()
+                        ),
+                        Some(&ctx.message_id),
+                    );
+                }
             }
             MostlyUwUArgs::AddKaomoji { kaomoji } => {
                 if !(self.kaomoji_add_permissions_user
@@ -301,7 +331,10 @@ impl ChatCommand for MostlyUwU {
                     self.save_kaomoji_list(&kaomoji_list)?;
                 } else {
                     let _ = api.send_chat_message_with_reply(
-                        "Index out of bounds, oh no (╥﹏╥)",
+                        &format!(
+                            "Index out of bounds ({}), oh no (╥﹏╥)",
+                            kaomoji_list.count()
+                        ),
                         Some(&ctx.message_id),
                     );
                 }
@@ -366,6 +399,9 @@ mod test {
         cmd.handle(&mut api, &create_test_msg("!uwu remove UwU"))?; // Could not find
         cmd.handle(&mut api, &create_test_msg("!uwu UwU"))?; // UwU was added
         cmd.handle(&mut api, &create_test_msg("!uwu UwU"))?; // UwU already exists
+
+        cmd.handle(&mut api, &create_test_msg("!uwu 0"))?; // OwO
+        cmd.handle(&mut api, &create_test_msg("!uwu -1"))?; // UwU
 
         cmd.handle(&mut api, &create_test_user_msg("!uwu"))?; // {}
         cmd.handle(&mut api, &create_test_user_msg("!uwu remove UwU"))?; // You can't do that.
