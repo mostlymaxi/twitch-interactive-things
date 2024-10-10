@@ -15,13 +15,6 @@ enum Mark {
 }
 
 impl Mark {
-    fn other(&self) -> Mark {
-        match self {
-            Mark::O => Mark::X,
-            Mark::X => Mark::O,
-        }
-    }
-
     fn to_char(self) -> char {
         match self {
             Self::O => 'O',
@@ -42,16 +35,6 @@ enum State {
     Tie,
     Turn(Mark),
     Winner(Mark),
-}
-
-impl State {
-    fn to_mark(&self) -> Mark {
-        match self {
-            Self::Tie => Mark::X,
-            Self::Winner(m) => *m,
-            Self::Turn(m) => *m,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -180,7 +163,7 @@ fn minimax(board: &Board) -> (usize, i8) {
         _ => return (0, 0),
     };
     for mve in possible {
-        let mut new_board = board.clone();
+        let mut new_board = *board;
         new_board.place(mve);
         match new_board.get_state() {
             State::Turn(_) => {
