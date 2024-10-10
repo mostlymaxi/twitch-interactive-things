@@ -80,6 +80,7 @@ pub fn init() -> CommandMap {
     map.insert(bot_time::BotTime::new());
     map.insert(uwu::MostlyUwU::new());
     map.insert(rewrite::MostlyRewrite::new());
+    map.insert(tictactoe::TicTacToe::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
