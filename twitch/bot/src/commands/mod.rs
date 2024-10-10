@@ -27,7 +27,7 @@ pub mod progress;
 pub mod vods;
 pub mod youtube;
 pub mod bot_time;
-pub mod mostlyrewrite;
+pub mod rewrite;
 
 // ----------------------------------------------------------------------------
 
@@ -80,7 +80,7 @@ pub fn init() -> CommandMap {
     map.insert(vods::MostlyVods::new());
     map.insert(lurk::Lurk::new());
     map.insert(bot_time::BotTime::new());
-    map.insert(mostlyrewrite::MostlyRewrite::new());
+    map.insert(rewrite::MostlyRewrite::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
