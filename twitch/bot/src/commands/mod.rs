@@ -1,6 +1,4 @@
 //! module containing all commands
-use anyhow::Result;
-use twitcheventsub::MessageData;
 
 #[allow(clippy::module_inception)]
 pub mod commands;
@@ -31,13 +29,15 @@ pub mod youtube;
 
 // ----------------------------------------------------------------------------
 
+use crate::api::TwitchApiWrapper;
+use crate::command::CommandMap;
+use anyhow::Result;
 use std::time::Duration;
+use twitcheventsub::MessageData;
 
 pub const DEFAULT_CMD_COOLDOWN_MS: u64 = 250;
 pub const DNE_ERROR_COOLDOWN_SECS: u64 = 30;
 pub const GEN_ERROR_COOLDOWN_SECS: u64 = 3;
-
-use crate::{api::TwitchApiWrapper, commandmap::CommandMap};
 
 pub trait ChatCommand: 'static {
     fn new() -> Self
@@ -91,13 +91,16 @@ pub fn init() -> CommandMap {
 
 #[cfg(test)]
 mod test {
-    use crate::api::MockTwitchEventSubApi;
-
-    use super::{ping, ChatCommand, CommandMap, TwitchApiWrapper};
+    use crate::{
+        api::MockTwitchEventSubApi,
+        command::handle_command_if_applicable,
+        commands::{ping, ChatCommand, CommandMap, TwitchApiWrapper},
+        spamcheck::SpamCheck,
+    };
     use serde_json::json;
+    use std::time::Duration;
     use twitcheventsub::MessageData;
 
-    /// Helper function to create a mock chat message JSON object
     /// Simulates a twitch chat message
     fn create_chat_msg(cmd: &str, chatter_id: &str) -> serde_json::Value {
         json!({
@@ -146,45 +149,55 @@ mod test {
     #[test]
     fn main() {
         let mut commands = CommandMap::new();
-        // Add available chat commands
         commands.insert(ping::MostlyPing::new());
 
         let mut api = TwitchApiWrapper::Test(MockTwitchEventSubApi::init_twitch_api());
 
-        // Simulate chat messages
+        // Allow 1 command every 3 seconds
+        let mut spam_check = SpamCheck::new(1, Duration::from_secs(3));
+
         const BOT_ID: &str = "id_bot";
 
+        // Create a variety of test cases to cover different command scenarios
         let chat_messages = vec![
+            // Basic valid command
             create_chat_msg("!ping", "id_ping0"),
+            // Valid command with arguments
             create_chat_msg("!ping with args", "id_ping1"),
-            create_chat_msg("!mostlypasta", "id_pasta"),
-            create_chat_msg("!non_existent_command", "id_phantom"),
-            create_chat_msg("ping", "id_invalid_command"),
+            // Non-existent command
+            create_chat_msg("!nonexistent", "id_phantom"),
+            // Message without the command prefix
+            create_chat_msg("ping", "id_invalid_no_prefix"),
+            // Valid command, but sent by the bot itself
             create_chat_msg("!ping", BOT_ID),
+            // Empty command (just the prefix)
+            create_chat_msg("!", "id_empty_command"),
+            // Command with extra spaces
+            create_chat_msg("!ping    ", "id_ping_extra_spaces"),
+            // Command with special characters
+            create_chat_msg("!ping$@", "id_ping_special_chars"),
+            // Mixed case command
+            create_chat_msg("!Ping", "id_mixed_case"),
+            // Spam check (with same user/chatter id)
+            create_chat_msg("!ping", "id_spam"),
+            create_chat_msg("!ping2", "id_spam"),
+            create_chat_msg("!ping$@", "id_spam"),
+            create_chat_msg("!Ping", "id_spam"),
         ];
 
-        for chat_msg in chat_messages {
-            let chat_msg_data: MessageData = serde_json::from_value(chat_msg).unwrap();
-
-            // same parsing and handling as `crate::handle_chat_messages`
-            let text = chat_msg_data.message.text.clone();
-            let mut args = text.split_whitespace();
-
-            let Some(cmd) = args
-                .next()
-                .filter(|cmd| cmd.starts_with('!'))
-                .and_then(|cmd| cmd.strip_prefix('!'))
-                .map(|cmd| cmd.to_lowercase())
-            else {
-                println!("Invalid message format: {}", text);
-                continue;
-            };
-
-            if chat_msg_data.chatter.id == BOT_ID {
-                println!("Message sent by bot: {}", text);
-                continue;
-            }
-            commands.handle_cmd(&mut api, &cmd, &chat_msg_data);
+        for (_i, chat_msg) in chat_messages.into_iter().enumerate() {
+            // // Simulating time delay between commands
+            // if i > 0 {
+            //     std::thread::sleep(Duration::from_secs(1));
+            // }
+            let chat_msg: MessageData = serde_json::from_value(chat_msg).unwrap();
+            handle_command_if_applicable(
+                &chat_msg,
+                &mut api,
+                &mut commands,
+                BOT_ID,
+                &mut spam_check,
+            );
         }
     }
 }

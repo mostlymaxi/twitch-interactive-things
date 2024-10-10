@@ -40,10 +40,7 @@ impl TwitchApiWrapper {
                 api.send_chat_message_with_reply(message, reply_message_parent_id.map(S::into))
             }
             Self::Test(_mock) => {
-                match reply_message_parent_id {
-                    Some(id) => println!("@{} {}", id.into(), message.into()),
-                    None => println!("MockApi: {}", message.into()),
-                }
+                println!("{}", message.into());
                 Ok(String::new())
             }
         };
