@@ -48,10 +48,7 @@ pub trait ChatCommand: 'static {
     where
         Self: Sized;
 
-    fn cooldown() -> Duration
-    where
-        Self: Sized,
-    {
+    fn cooldown(&self) -> Duration {
         Duration::from_millis(DEFAULT_CMD_COOLDOWN_MS)
     }
 
@@ -144,10 +141,9 @@ mod test {
         })
     }
 
-    /// Simulates a series of chat messages to test the command handling functionality
-    /// Can be run with `cargo test main -- --show-output` to display the output
+    /// Test handling of various command scenarios, including spam detection and invalid commands
     #[test]
-    fn main() {
+    fn test_chat_command_handling() {
         let mut commands = CommandMap::new();
         commands.insert(ping::MostlyPing::new());
 
@@ -199,5 +195,50 @@ mod test {
                 &mut spam_check,
             );
         }
+    }
+
+    #[test]
+    fn test_per_command_cooldown() {
+        let cooldown = Duration::from_millis(100);
+        let mut spam_check = SpamCheck::new(3, Duration::from_millis(0));
+
+        // First time the command is executed, no cooldown should be active
+        assert!(spam_check
+            .check_command_cooldown("ping", cooldown)
+            .is_none());
+
+        // Immediately after, the command should be under cooldown
+        assert!(spam_check
+            .check_command_cooldown("ping", cooldown)
+            .is_some());
+
+        // Simulate waiting
+        std::thread::sleep(cooldown);
+
+        // Cooldown should have expired, allowing the command to be executed again
+        assert!(spam_check
+            .check_command_cooldown("ping", cooldown)
+            .is_none());
+    }
+
+    #[test]
+    fn test_spam_detection_multiple_users() {
+        // Allow 1 command every 10 milliseconds
+        let mut spam_check = SpamCheck::new(1, Duration::from_millis(10));
+
+        // User 1: First command should go through (not spam)
+        assert!(!spam_check.check_spam("user1"));
+
+        // User 1: Immediate second command should be flagged as spam
+        assert!(spam_check.check_spam("user1"));
+
+        // User 2: New user, first command should go through (not spam)
+        assert!(!spam_check.check_spam("user2"));
+
+        // Simulate time passing to clear the cooldown
+        std::thread::sleep(Duration::from_millis(15));
+
+        // User 1: After waiting, command should go through again (not spam)
+        assert!(!spam_check.check_spam("user1"));
     }
 }
