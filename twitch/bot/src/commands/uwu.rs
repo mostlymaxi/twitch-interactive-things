@@ -224,7 +224,13 @@ impl ChatCommand for MostlyUwU {
     }
 
     fn names() -> Vec<String> {
-        vec!["uwu".to_string(), "owo".to_string(), "kaomoji".to_string()]
+        vec![
+            "uwu".to_string(),
+            "UwU".to_string(),
+            "owo".to_string(),
+            "OwO".to_string(),
+            "kaomoji".to_string(),
+        ]
     }
 
     fn help(&self) -> String {
