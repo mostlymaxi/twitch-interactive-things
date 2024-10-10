@@ -6,8 +6,6 @@
 
 use std::collections::HashMap;
 
-use tracing_subscriber::fmt::format;
-
 use super::ChatCommand;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -86,7 +84,7 @@ impl Board {
                 _ => '|',
             });
         }
-        str.lines().collect()
+        str.lines().map(|s| s.to_owned()).collect()
     }
 
     fn get_state(&self) -> State {
