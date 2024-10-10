@@ -58,7 +58,7 @@ impl ChatCommand for MostlyHelp {
             return Err(anyhow!("too many arguments"));
         }
 
-        self.cmds.get_mut(cmd_name).map(|c| c.help(api, ctx));
+        self.cmds.get_mut(cmd_name).map(|c| c.borrow().help());
 
         Ok(())
     }
