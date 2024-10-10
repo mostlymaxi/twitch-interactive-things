@@ -376,7 +376,7 @@ mod test {
     use twitcheventsub::MessageData;
 
     use super::*;
-    use crate::commands::{MockTwitchEventSubApi, TwitchApiWrapper};
+    use crate::api::{MockTwitchEventSubApi, TwitchApiWrapper};
 
     fn create_test_msg(content: &str) -> MessageData {
         serde_json::from_str(&format!(
