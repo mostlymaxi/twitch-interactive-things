@@ -1,7 +1,7 @@
 [package]
 name = "mostlybot"
 description = "mostlybot is the twitch bot that I use for my stream on twitch"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2021"
 repository = "https://github.com/mostlymaxi/twitch-interactive-things/tree/main/twitch/bot"
 documentation = "https://docs.rs/mostlybot"
@@ -12,6 +12,8 @@ license = "MIT"
 [dependencies]
 anyhow = "1.0.89"
 franz-client = "0.1.3"
+rand = "0.8.5"
+serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 tokio = { version = "1.40.0", features = [
 	"macros",

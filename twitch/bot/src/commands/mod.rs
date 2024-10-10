@@ -1,7 +1,4 @@
 //! module containing all commands
-use anyhow::Result;
-use tracing::instrument;
-use twitcheventsub::{EventSubError, MessageData, TwitchEventSubApi};
 
 #[allow(clippy::module_inception)]
 pub mod commands;
@@ -14,17 +11,36 @@ pub mod commands;
 //
 //
 // add your command module to this list:
+pub mod ban;
+pub mod bot_time;
+pub mod count;
+pub mod discord;
+pub mod git;
 pub mod help;
 pub mod kofi;
+pub mod lurk;
 pub mod mostlybot;
 pub mod mostlypasta;
 pub mod ping;
 pub mod count;
 pub mod pong;
+pub mod progress;
+pub mod uwu;
+pub mod vods;
+pub mod youtube;
+pub mod rewrite;
 
 // ----------------------------------------------------------------------------
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use crate::api::TwitchApiWrapper;
+use crate::command::CommandMap;
+use anyhow::Result;
+use std::time::Duration;
+use twitcheventsub::MessageData;
+
+pub const DEFAULT_CMD_COOLDOWN_MS: u64 = 250;
+pub const DNE_ERROR_COOLDOWN_SECS: u64 = 30;
+pub const GEN_ERROR_COOLDOWN_SECS: u64 = 3;
 
 pub trait ChatCommand: 'static {
     fn new() -> Self
@@ -35,94 +51,13 @@ pub trait ChatCommand: 'static {
     where
         Self: Sized;
 
+    fn cooldown(&self) -> Duration {
+        Duration::from_millis(DEFAULT_CMD_COOLDOWN_MS)
+    }
+
     fn handle(&mut self, api: &mut TwitchApiWrapper, ctx: &MessageData) -> Result<()>;
 
     fn help(&self) -> String;
-}
-
-pub struct MockTwitchEventSubApi {}
-
-impl MockTwitchEventSubApi {
-    pub fn init_twitch_api() -> MockTwitchEventSubApi {
-        MockTwitchEventSubApi {}
-    }
-}
-
-pub enum TwitchApiWrapper {
-    Live(TwitchEventSubApi),
-    Test(MockTwitchEventSubApi),
-}
-
-impl TwitchApiWrapper {
-    fn send_chat_message<S: Into<String>>(&mut self, message: S) -> Result<String, EventSubError> {
-        match self {
-            Self::Live(api) => api.send_chat_message(message),
-            Self::Test(_mock) => todo!(),
-        }
-    }
-
-    fn send_chat_message_with_reply<S: Into<String>>(
-        &mut self,
-        message: S,
-        reply_message_parent_id: Option<S>,
-    ) -> Result<String, EventSubError> {
-        match self {
-            Self::Live(api) => {
-                api.send_chat_message_with_reply(message, reply_message_parent_id.map(S::into))
-            }
-            Self::Test(_mock) => {
-                match reply_message_parent_id {
-                    Some(id) => println!("@{} {}", id.into(), message.into()),
-                    None => println!("MockApi: {}", message.into()),
-                }
-                Ok(String::new())
-            }
-        }
-    }
-}
-
-type CommandCell = Rc<RefCell<dyn ChatCommand>>;
-#[derive(Clone)]
-pub struct CommandMap(HashMap<String, CommandCell>);
-
-impl CommandMap {
-    fn new() -> Self {
-        CommandMap(HashMap::new())
-    }
-
-    fn insert<C: ChatCommand>(&mut self, cmd: C) {
-        let cmd = Rc::new(RefCell::new(cmd));
-        for name in C::names() {
-            self.0.insert(name, Rc::clone(&cmd) as _);
-        }
-    }
-
-    fn get_mut(&mut self, key: &str) -> Option<&mut CommandCell> {
-        self.0.get_mut(key)
-    }
-
-    fn get(&self, key: &str) -> Option<&CommandCell> {
-        self.0.get(key)
-    }
-
-    #[instrument(skip(self, api, ctx))]
-    pub fn handle_cmd(&mut self, api: &mut TwitchApiWrapper, cmd: &str, ctx: &MessageData) {
-        match self.get_mut(cmd).map(|c| c.borrow_mut().handle(api, ctx)) {
-            None => {
-                let _ = api.send_chat_message_with_reply(
-                    format!("{cmd} does not exist"),
-                    Some(ctx.message_id.clone()),
-                );
-            }
-            Some(Err(e)) => {
-                let _ = api.send_chat_message_with_reply(
-                    format!("err: {e}"),
-                    Some(ctx.message_id.clone()),
-                );
-            }
-            Some(Ok(())) => {}
-        }
-    }
 }
 
 pub fn init() -> CommandMap {
@@ -131,10 +66,20 @@ pub fn init() -> CommandMap {
     map.insert(mostlypasta::MostlyPasta::new());
     map.insert(ping::MostlyPing::new());
     map.insert(pong::MostlyPong::new());
+    map.insert(ban::MostlyBan::new());
     map.insert(commands::MostlyCommands::new());
     map.insert(mostlybot::MostlyBot::new());
     map.insert(count::Count::new());
     map.insert(kofi::MostlyKofi::new());
+    map.insert(progress::Progress::new());
+    map.insert(youtube::MostlyYoutube::new());
+    map.insert(git::MostlyGit::new());
+    map.insert(discord::MostlyDiscord::new());
+    map.insert(vods::MostlyVods::new());
+    map.insert(lurk::Lurk::new());
+    map.insert(bot_time::BotTime::new());
+    map.insert(uwu::MostlyUwU::new());
+    map.insert(rewrite::MostlyRewrite::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
@@ -148,11 +93,16 @@ pub fn init() -> CommandMap {
 
 #[cfg(test)]
 mod test {
-    use super::{ping, ChatCommand, CommandMap, MockTwitchEventSubApi, TwitchApiWrapper};
+    use crate::{
+        api::MockTwitchEventSubApi,
+        command::handle_command_if_applicable,
+        commands::{ping, ChatCommand, CommandMap, TwitchApiWrapper},
+        spamcheck::SpamCheck,
+    };
     use serde_json::json;
+    use std::time::Duration;
     use twitcheventsub::MessageData;
 
-    /// Helper function to create a mock chat message JSON object
     /// Simulates a twitch chat message
     fn create_chat_msg(cmd: &str, chatter_id: &str) -> serde_json::Value {
         json!({
@@ -196,50 +146,104 @@ mod test {
         })
     }
 
-    /// Simulates a series of chat messages to test the command handling functionality
-    /// Can be run with `cargo test main -- --show-output` to display the output
+    /// Test handling of various command scenarios, including spam detection and invalid commands
     #[test]
-    fn main() {
+    fn test_chat_command_handling() {
         let mut commands = CommandMap::new();
-        // Add available chat commands
         commands.insert(ping::MostlyPing::new());
 
         let mut api = TwitchApiWrapper::Test(MockTwitchEventSubApi::init_twitch_api());
 
-        // Simulate chat messages
+        // Allow 1 command every 3 seconds
+        let mut spam_check = SpamCheck::new(1, Duration::from_secs(3));
+
         const BOT_ID: &str = "id_bot";
 
+        // Create a variety of test cases to cover different command scenarios
         let chat_messages = vec![
+            // Basic valid command
             create_chat_msg("!ping", "id_ping0"),
+            // Valid command with arguments
             create_chat_msg("!ping with args", "id_ping1"),
-            create_chat_msg("!mostlypasta", "id_pasta"),
-            create_chat_msg("!non_existent_command", "id_phantom"),
-            create_chat_msg("ping", "id_invalid_command"),
+            // Non-existent command
+            create_chat_msg("!nonexistent", "id_phantom"),
+            // Message without the command prefix
+            create_chat_msg("ping", "id_invalid_no_prefix"),
+            // Valid command, but sent by the bot itself
             create_chat_msg("!ping", BOT_ID),
+            // Empty command (just the prefix)
+            create_chat_msg("!", "id_empty_command"),
+            // Command with extra spaces
+            create_chat_msg("!ping    ", "id_ping_extra_spaces"),
+            // Command with special characters
+            create_chat_msg("!ping$@", "id_ping_special_chars"),
+            // Mixed case command
+            create_chat_msg("!Ping", "id_mixed_case"),
+            // Spam check (with same user/chatter id)
+            create_chat_msg("!ping", "id_spam"),
+            create_chat_msg("!ping2", "id_spam"),
+            create_chat_msg("!ping$@", "id_spam"),
+            create_chat_msg("!Ping", "id_spam"),
         ];
 
-        for chat_msg in chat_messages {
-            let chat_msg_data: MessageData = serde_json::from_value(chat_msg).unwrap();
-
-            // same parsing and handling as `crate::handle_chat_messages`
-            let text = chat_msg_data.message.text.clone();
-            let mut args = text.split_whitespace();
-
-            let Some(cmd) = args
-                .next()
-                .filter(|cmd| cmd.starts_with('!'))
-                .and_then(|cmd| cmd.strip_prefix('!'))
-                .map(|cmd| cmd.to_lowercase())
-            else {
-                println!("Invalid message format: {}", text);
-                continue;
-            };
-
-            if chat_msg_data.chatter.id == BOT_ID {
-                println!("Message sent by bot: {}", text);
-                continue;
-            }
-            commands.handle_cmd(&mut api, &cmd, &chat_msg_data);
+        for (_i, chat_msg) in chat_messages.into_iter().enumerate() {
+            // // Simulating time delay between commands
+            // if i > 0 {
+            //     std::thread::sleep(Duration::from_secs(1));
+            // }
+            let chat_msg: MessageData = serde_json::from_value(chat_msg).unwrap();
+            handle_command_if_applicable(
+                &chat_msg,
+                &mut api,
+                &mut commands,
+                BOT_ID,
+                &mut spam_check,
+            );
         }
+    }
+
+    #[test]
+    fn test_per_command_cooldown() {
+        let cooldown = Duration::from_millis(100);
+        let mut spam_check = SpamCheck::new(3, Duration::from_millis(0));
+
+        // First time the command is executed, no cooldown should be active
+        assert!(spam_check
+            .check_command_cooldown("ping", cooldown)
+            .is_none());
+
+        // Immediately after, the command should be under cooldown
+        assert!(spam_check
+            .check_command_cooldown("ping", cooldown)
+            .is_some());
+
+        // Simulate waiting
+        std::thread::sleep(cooldown);
+
+        // Cooldown should have expired, allowing the command to be executed again
+        assert!(spam_check
+            .check_command_cooldown("ping", cooldown)
+            .is_none());
+    }
+
+    #[test]
+    fn test_spam_detection_multiple_users() {
+        // Allow 1 command every 10 milliseconds
+        let mut spam_check = SpamCheck::new(1, Duration::from_millis(10));
+
+        // User 1: First command should go through (not spam)
+        assert!(!spam_check.check_spam("user1"));
+
+        // User 1: Immediate second command should be flagged as spam
+        assert!(spam_check.check_spam("user1"));
+
+        // User 2: New user, first command should go through (not spam)
+        assert!(!spam_check.check_spam("user2"));
+
+        // Simulate time passing to clear the cooldown
+        std::thread::sleep(Duration::from_millis(15));
+
+        // User 1: After waiting, command should go through again (not spam)
+        assert!(!spam_check.check_spam("user1"));
     }
 }

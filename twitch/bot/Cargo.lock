@@ -675,10 +675,12 @@ dependencies = [
 
 [[package]]
 name = "mostlybot"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "franz-client",
+ "rand",
+ "serde",
  "serde_json",
  "tokio",
  "tokio-util",
