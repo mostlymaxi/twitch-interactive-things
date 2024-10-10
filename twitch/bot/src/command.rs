@@ -169,9 +169,8 @@ pub fn handle_command_if_applicable(
     bot_id: &str,
     spam_check: &mut SpamCheck,
 ) {
-    // Check if the user is sending commands too quickly
-    if spam_check.check_spam(&ctx.chatter.id) {
-        notify_chat(api, ctx, ChatNotification::SpamDetected);
+    // Ignore commands sent by the bot itself
+    if ctx.chatter.id == bot_id {
         return;
     }
 
@@ -190,15 +189,9 @@ pub fn handle_command_if_applicable(
         CommandParseResult::ValidCommand(cmd_name, args) => (cmd_name, args),
     };
 
-    // Ignore commands sent by the bot itself
-    if ctx.chatter.id == bot_id {
-        if let TwitchApiWrapper::Test(_) = api {
-            notify_chat(
-                api,
-                ctx,
-                ChatNotification::CommandSentByBot(cmd_name.clone()),
-            );
-        }
+    // Check if the user is sending commands too quickly
+    if spam_check.check_spam(&ctx.chatter.id) {
+        notify_chat(api, ctx, ChatNotification::SpamDetected);
         return;
     }
 
