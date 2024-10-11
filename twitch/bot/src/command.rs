@@ -38,16 +38,6 @@ impl Command {
         self.inner.borrow_mut()
     }
 
-    // pub fn borrow(&self) -> &dyn ChatCommand {
-    //     // SAFETY: Single-threaded unique access
-    //     unsafe { &*self.inner.as_ref() }
-    // }
-
-    // pub fn borrow_mut(&self) -> &mut dyn ChatCommand {
-    //     // SAFETY: Single-threaded unique access
-    //     unsafe { &mut *self.inner.as_ptr() }
-    // }
-
     /// Parses the message to check if it's a command
     pub fn parse(message: &str) -> CommandParseResult {
         let trimmed_message = message.trim();
@@ -216,8 +206,6 @@ pub fn handle_command_if_applicable(
         );
         return;
     };
-
-    // let mut cmd = cmd_cell.borrow_mut();
 
     // Check if the command is under cooldown
     if let Some(duration) =
