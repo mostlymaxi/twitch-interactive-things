@@ -25,7 +25,7 @@ impl ChatCommand for MostlyBan {
 
     fn handle(
         &mut self,
-        api: &mut super::TwitchApiWrapper,
+        api: &super::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
         let arg: Vec<_> = ctx.message.text.split_whitespace().skip(1).collect();

@@ -64,7 +64,7 @@ impl ChatCommand for Lurk {
 
     fn handle(
         &mut self,
-        api: &mut super::TwitchApiWrapper,
+        api: &super::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
         // split the words in the messages

@@ -6,7 +6,7 @@
 
 use super::ChatCommand;
 use anyhow::anyhow;
-use tracing::{error, debug};
+use tracing::{debug, error};
 
 pub struct MostlyRewrite {}
 
@@ -23,7 +23,11 @@ impl ChatCommand for MostlyRewrite {
         "usage: !rewrite <arguments>".to_string()
     }
 
-    fn handle(&mut self, api: &mut super::TwitchApiWrapper, ctx: &twitcheventsub::MessageData) -> anyhow::Result<()> {
+    fn handle(
+        &mut self,
+        api: &super::TwitchApiWrapper,
+        ctx: &twitcheventsub::MessageData,
+    ) -> anyhow::Result<()> {
         let arg: Vec<_> = ctx.message.text.split_whitespace().skip(1).collect();
         let arg: String = arg.join(" ");
 

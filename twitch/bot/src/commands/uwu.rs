@@ -240,7 +240,7 @@ impl ChatCommand for MostlyUwU {
     #[instrument(skip(self, api))]
     fn handle(
         &mut self,
-        api: &mut super::TwitchApiWrapper,
+        api: &super::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
         // Collect Args -> Load kaomoji -> Validate permissions -> Execute command

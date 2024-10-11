@@ -77,7 +77,7 @@ impl ChatCommand for MostlyPing {
     #[instrument(skip(self, api))]
     fn handle(
         &mut self,
-        api: &mut super::TwitchApiWrapper,
+        api: &super::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
         match api.send_chat_message_with_reply("pong", Some(&ctx.message_id)) {

@@ -27,7 +27,7 @@ impl ChatCommand for MostlyBot {
     #[instrument(skip(self, api))]
     fn handle(
         &mut self,
-        api: &mut super::TwitchApiWrapper,
+        api: &super::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
         match api.send_chat_message_with_reply(

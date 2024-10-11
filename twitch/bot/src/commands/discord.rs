@@ -22,7 +22,7 @@ impl ChatCommand for MostlyDiscord {
 
     fn handle(
         &mut self,
-        api: &mut super::TwitchApiWrapper,
+        api: &super::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
         let _ = api.send_chat_message_with_reply(

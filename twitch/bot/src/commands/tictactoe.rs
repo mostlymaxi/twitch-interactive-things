@@ -1,7 +1,7 @@
 //! Play Tic Tac Toe with a computer because you don't have any REAL friends!
 //!
 //! usage (!tictactoe/!ttt) (reset/1..=9)
-//! 
+//!
 //! author: lunispang
 
 use std::collections::HashMap;
@@ -211,7 +211,7 @@ impl ChatCommand for TicTacToe {
     }
     fn handle(
         &mut self,
-        api: &mut crate::api::TwitchApiWrapper,
+        api: &crate::api::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
         let arg = ctx.message.text.split_whitespace().nth(1);

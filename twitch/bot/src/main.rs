@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+use std::cell::RefCell;
 use std::time::Duration;
 
 use mostlybot::*;
@@ -72,7 +73,7 @@ async fn cancel_on_signal(token: CancellationToken) {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let mut api = TwitchApiWrapper::Live(init_twitch_api());
+    let mut api = TwitchApiWrapper::Live(RefCell::new(init_twitch_api()));
     let mut consumer = init_franz_consumer("chat").await;
 
     let cancel_token = CancellationToken::new();

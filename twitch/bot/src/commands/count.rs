@@ -26,11 +26,14 @@ impl ChatCommand for Count {
     #[instrument(skip(self, api))]
     fn handle(
         &mut self,
-        api: &mut super::TwitchApiWrapper,
+        api: &super::TwitchApiWrapper,
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
         let Self(count) = self;
-        if api.send_chat_message(format!("current count: {count}")).is_ok() {
+        if api
+            .send_chat_message(format!("current count: {count}"))
+            .is_ok()
+        {
             *self = Self(*count + 1);
         }
         Ok(())

@@ -55,7 +55,7 @@ pub trait ChatCommand: 'static {
         Duration::from_millis(DEFAULT_CMD_COOLDOWN_MS)
     }
 
-    fn handle(&mut self, api: &mut TwitchApiWrapper, ctx: &MessageData) -> Result<()>;
+    fn handle(&mut self, api: &TwitchApiWrapper, ctx: &MessageData) -> Result<()>;
 
     fn help(&self) -> String;
 }

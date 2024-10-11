@@ -37,7 +37,7 @@ impl ChatCommand for MostlyHelp {
     }
 
     #[instrument(skip(self, api, ctx))]
-    fn handle(&mut self, api: &mut TwitchApiWrapper, ctx: &MessageData) -> Result<()> {
+    fn handle(&mut self, api: &TwitchApiWrapper, ctx: &MessageData) -> Result<()> {
         let mut args = ctx.message.text.split_whitespace();
         let _ = args.next();
 

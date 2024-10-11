@@ -1,10 +1,5 @@
 use crate::{api::TwitchApiWrapper, commands::ChatCommand, spamcheck::SpamCheck};
-use std::{
-    cell::{Ref, RefCell, RefMut},
-    collections::HashMap,
-    rc::Rc,
-    time::Duration,
-};
+use std::{collections::HashMap, ptr::NonNull, time::Duration};
 use tracing::instrument;
 use twitcheventsub::MessageData;
 
@@ -18,22 +13,26 @@ pub enum CommandParseResult {
 
 #[derive(Clone)]
 pub struct Command {
-    inner: Rc<RefCell<dyn ChatCommand>>,
+    inner: NonNull<dyn ChatCommand>,
 }
+
+impl std::panic::RefUnwindSafe for Command {}
 
 impl Command {
     const PREFIX: char = '!';
 
-    fn new(cmd: Rc<RefCell<dyn ChatCommand>>) -> Self {
+    fn new(cmd: NonNull<dyn ChatCommand>) -> Self {
         Self { inner: cmd }
     }
 
-    pub fn borrow(&self) -> Ref<dyn ChatCommand> {
-        self.inner.borrow()
+    pub fn borrow(&self) -> &dyn ChatCommand {
+        // SAFETY: Single-threaded unique access
+        unsafe { &*self.inner.as_ref() }
     }
 
-    pub fn borrow_mut(&self) -> RefMut<dyn ChatCommand> {
-        self.inner.borrow_mut()
+    pub fn borrow_mut(&self) -> &mut dyn ChatCommand {
+        // SAFETY: Single-threaded unique access
+        unsafe { &mut *self.inner.as_ptr() }
     }
 
     /// Parses the message to check if it's a command
@@ -92,10 +91,12 @@ impl CommandMap {
         Self::default()
     }
 
-    pub fn insert<C: ChatCommand>(&mut self, cmd: C) {
-        let cmd = Rc::new(RefCell::new(cmd));
+    pub fn insert<C: ChatCommand>(&mut self, mut cmd: C) {
         for name in C::names() {
-            self.inner.insert(name, Command::new(Rc::clone(&cmd) as _));
+            self.inner.insert(
+                name,
+                Command::new(NonNull::new(&mut cmd as *mut _).expect("not going to be nullptr")),
+            );
         }
     }
 
@@ -121,7 +122,7 @@ enum ChatNotification {
 }
 
 /// Sends a message to the chat based on the provided context
-fn notify_chat(api: &mut TwitchApiWrapper, ctx: &MessageData, notification: ChatNotification) {
+fn notify_chat(api: &TwitchApiWrapper, ctx: &MessageData, notification: ChatNotification) {
     let msg = match notification {
         ChatNotification::NotACommand => format!("\"{}\" is not a command", ctx.message.text),
         ChatNotification::InvalidCommand => {
@@ -164,7 +165,7 @@ fn notify_chat(api: &mut TwitchApiWrapper, ctx: &MessageData, notification: Chat
 #[instrument(skip(api, ctx, cmds, spam_check))]
 pub fn handle_command_if_applicable(
     ctx: &MessageData,
-    api: &mut TwitchApiWrapper,
+    api: &TwitchApiWrapper,
     cmds: &mut CommandMap,
     bot_id: &str,
     spam_check: &mut SpamCheck,
@@ -196,7 +197,7 @@ pub fn handle_command_if_applicable(
     }
 
     // Check if the command exists and handle it
-    let Some(cmd) = cmds.get_mut(&cmd_name) else {
+    let Some(cmd_cell) = cmds.get_mut(&cmd_name) else {
         notify_chat(
             api,
             ctx,
@@ -205,10 +206,12 @@ pub fn handle_command_if_applicable(
         return;
     };
 
-    let mut cmd = cmd.borrow_mut();
+    // let mut cmd = cmd_cell.borrow_mut();
 
     // Check if the command is under cooldown
-    if let Some(duration) = spam_check.check_command_cooldown(&cmd_name, cmd.cooldown()) {
+    if let Some(duration) =
+        spam_check.check_command_cooldown(&cmd_name, cmd_cell.borrow().cooldown())
+    {
         notify_chat(
             api,
             ctx,
@@ -217,11 +220,21 @@ pub fn handle_command_if_applicable(
         return;
     }
 
-    if let Err(err) = cmd.handle(api, ctx) {
+    if std::panic::catch_unwind(|| {
+        if let Err(err) = cmd_cell.borrow_mut().handle(api, ctx) {
+            notify_chat(
+                api,
+                ctx,
+                ChatNotification::HandleError(cmd_name.clone(), err.to_string()),
+            );
+        }
+    })
+    .is_err()
+    {
         notify_chat(
             api,
             ctx,
-            ChatNotification::HandleError(cmd_name.clone(), err.to_string()),
+            ChatNotification::HandleError(cmd_name.clone(), "Caught panic".to_string()),
         );
     }
 }
