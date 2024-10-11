@@ -1,2 +1,6 @@
 \.*\.env
 target
+# direnv metadata
+.direnv
+# nix build symlink
+result
