@@ -1,5 +1,10 @@
 use crate::{api::TwitchApiWrapper, commands::ChatCommand, spamcheck::SpamCheck};
-use std::{collections::HashMap, ptr::NonNull, time::Duration};
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    collections::HashMap,
+    rc::Rc,
+    time::Duration,
+};
 use tracing::instrument;
 use twitcheventsub::MessageData;
 
@@ -13,7 +18,7 @@ pub enum CommandParseResult {
 
 #[derive(Clone)]
 pub struct Command {
-    inner: NonNull<dyn ChatCommand>,
+    inner: Rc<RefCell<dyn ChatCommand>>,
 }
 
 impl std::panic::RefUnwindSafe for Command {}
@@ -21,19 +26,27 @@ impl std::panic::RefUnwindSafe for Command {}
 impl Command {
     const PREFIX: char = '!';
 
-    fn new(cmd: NonNull<dyn ChatCommand>) -> Self {
+    fn new(cmd: Rc<RefCell<dyn ChatCommand>>) -> Self {
         Self { inner: cmd }
     }
 
-    pub fn borrow(&self) -> &dyn ChatCommand {
-        // SAFETY: Single-threaded unique access
-        unsafe { &*self.inner.as_ref() }
+    pub fn borrow(&self) -> Ref<dyn ChatCommand> {
+        self.inner.borrow()
     }
 
-    pub fn borrow_mut(&self) -> &mut dyn ChatCommand {
-        // SAFETY: Single-threaded unique access
-        unsafe { &mut *self.inner.as_ptr() }
+    pub fn borrow_mut(&self) -> RefMut<dyn ChatCommand> {
+        self.inner.borrow_mut()
     }
+
+    // pub fn borrow(&self) -> &dyn ChatCommand {
+    //     // SAFETY: Single-threaded unique access
+    //     unsafe { &*self.inner.as_ref() }
+    // }
+
+    // pub fn borrow_mut(&self) -> &mut dyn ChatCommand {
+    //     // SAFETY: Single-threaded unique access
+    //     unsafe { &mut *self.inner.as_ptr() }
+    // }
 
     /// Parses the message to check if it's a command
     pub fn parse(message: &str) -> CommandParseResult {
@@ -91,12 +104,10 @@ impl CommandMap {
         Self::default()
     }
 
-    pub fn insert<C: ChatCommand>(&mut self, mut cmd: C) {
+    pub fn insert<C: ChatCommand>(&mut self, cmd: C) {
+        let cmd = Rc::new(RefCell::new(cmd));
         for name in C::names() {
-            self.inner.insert(
-                name,
-                Command::new(NonNull::new(&mut cmd as *mut _).expect("not going to be nullptr")),
-            );
+            self.inner.insert(name, Command::new(cmd.clone() as _));
         }
     }
 

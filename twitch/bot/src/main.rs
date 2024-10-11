@@ -73,7 +73,7 @@ async fn cancel_on_signal(token: CancellationToken) {
 async fn main() {
     tracing_subscriber::fmt::init();
 
-    let mut api = TwitchApiWrapper::Live(RefCell::new(init_twitch_api()));
+    let api = TwitchApiWrapper::Live(RefCell::new(init_twitch_api()));
     let mut consumer = init_franz_consumer("chat").await;
 
     let cancel_token = CancellationToken::new();
@@ -96,6 +96,6 @@ async fn main() {
             continue;
         };
 
-        handle_command_if_applicable(&chat_msg, &mut api, &mut commands, &bot_id, &mut spam_check);
+        handle_command_if_applicable(&chat_msg, &api, &mut commands, &bot_id, &mut spam_check);
     }
 }
