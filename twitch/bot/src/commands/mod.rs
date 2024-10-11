@@ -29,7 +29,6 @@ pub mod tictactoe;
 pub mod uwu;
 pub mod vods;
 pub mod youtube;
-pub mod tictactoe;
 
 // ----------------------------------------------------------------------------
 
