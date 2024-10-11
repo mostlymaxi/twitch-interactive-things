@@ -1,3 +1,4 @@
 pub mod api;
-pub mod commandmap;
+pub mod command;
 pub mod commands;
+pub mod spamcheck;

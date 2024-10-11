@@ -1,3 +1,9 @@
+//! Play Tic Tac Toe with a computer because you don't have any REAL friends!
+//!
+//! usage (!tictactoe/!ttt) (reset/1..=9)
+//!
+//! author: lunispang
+
 use std::collections::HashMap;
 
 use super::ChatCommand;
@@ -61,21 +67,25 @@ impl Board {
         }
     }
 
-    fn print(&self) {
-        for i in 0..9 {
-            print!(
-                "{}",
-                match &self.marks[i as usize] {
-                    None => ' ', //(b'0' + i) as char,
-                    Some(m) => m.to_char(),
-                }
-            );
-            if i % 3 == 2 {
-                println!();
-            } else {
-                print!("|");
-            }
+    fn print(&self) -> Vec<String> {
+        let mut str = String::new();
+        match self.get_state() {
+            State::Tie => str.push_str("The game ended in a Tie!"),
+            State::Winner(m) => str.push_str(&format!("{} Won!", m.to_char())),
+            State::Turn(m) => str.push_str(&format!("{}'s turn!", m.to_char())),
         }
+        str.push('\n');
+        for i in 0..9 {
+            str.push(match self.marks[i] {
+                Some(m) => m.to_char(),
+                None => '_',
+            });
+            str.push(match i % 3 {
+                2 => '\n',
+                _ => '|',
+            });
+        }
+        str.lines().map(|s| s.to_owned()).collect()
     }
 
     fn get_state(&self) -> State {
@@ -163,15 +173,19 @@ impl Board {
     }
 }
 
-fn minimax(board: Board, player: Mark) -> (usize, i8) {
+fn minimax(board: &Board) -> (usize, i8) {
     let possible = board.empty();
     let mut results = Vec::new();
+    let player = match board.get_state() {
+        State::Turn(m) => m,
+        _ => return (0, 0),
+    };
     for mve in possible {
-        let mut new_board = board;
+        let mut new_board = board.clone();
         new_board.place(mve);
         match new_board.get_state() {
             State::Turn(_) => {
-                results.push((mve, -minimax(new_board, player.other()).1));
+                results.push((mve, -minimax(&new_board).1));
             }
             State::Tie => results.push((mve, 0)),
             State::Winner(m) => results.push((mve, m.to_value() * player.to_value())),
@@ -213,22 +227,33 @@ impl ChatCommand for TicTacToe {
             _ => {
                 if let Some(arg) = arg {
                     match arg.chars().next() {
-                        Some(c @ '1'..'9') => {
+                        Some(c @ '1'..='9') => {
                             if !self.players.contains_key(&ctx.chatter.id) {
                                 self.players.insert(ctx.chatter.id.clone(), Board::new());
                             }
                             let board = self.players.get_mut(&ctx.chatter.id).unwrap();
-                            board.place((c.to_digit(10).unwrap() - 1) as usize);
-                            let bot_move = minimax(*board, board.get_state().to_mark()).0;
-                            board.place(bot_move);
+                            if board
+                                .place((c.to_digit(10).unwrap() - 1) as usize)
+                                .is_some()
+                            {
+                                let bot_move = minimax(board).0;
+                                board.place(bot_move);
+                                for row in board.print() {
+                                    let _ = api.send_chat_message(row);
+                                }
+                            }
+                            else {
+                                api.send_chat_message("Invalid move!");
+                            }
                         }
                         _ => {
                             let _ = api.send_chat_message(self.help());
                             return Ok(());
                         }
                     }
+                } else {
+                    let _ = api.send_chat_message(self.help());
                 }
-                let _ = api.send_chat_message(self.help());
                 return Ok(());
             }
         }
