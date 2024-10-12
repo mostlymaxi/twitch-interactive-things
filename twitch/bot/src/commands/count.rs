@@ -10,6 +10,7 @@ use super::ChatCommand;
 
 pub struct Count(usize);
 
+
 impl ChatCommand for Count {
     fn new() -> Self {
         Self(0)
