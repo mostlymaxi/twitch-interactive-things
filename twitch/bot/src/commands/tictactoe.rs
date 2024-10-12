@@ -1,7 +1,7 @@
 //! Play Tic Tac Toe with a computer because you don't have any REAL friends!
 //!
 //! usage (!tictactoe/!ttt) (reset/1..=9)
-//! 
+//!
 //! author: lunispang
 
 use std::collections::HashMap;
@@ -15,13 +15,6 @@ enum Mark {
 }
 
 impl Mark {
-    fn other(&self) -> Mark {
-        match self {
-            Mark::O => Mark::X,
-            Mark::X => Mark::O,
-        }
-    }
-
     fn to_char(self) -> char {
         match self {
             Self::O => 'O',
@@ -44,16 +37,6 @@ enum State {
     Winner(Mark),
 }
 
-impl State {
-    fn to_mark(&self) -> Mark {
-        match self {
-            Self::Tie => Mark::X,
-            Self::Winner(m) => *m,
-            Self::Turn(m) => *m,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 struct Board {
     marks: [Option<Mark>; 9],
@@ -74,6 +57,7 @@ impl Board {
             State::Winner(m) => str.push_str(&format!("{} Won!", m.to_char())),
             State::Turn(m) => str.push_str(&format!("{}'s turn!", m.to_char())),
         }
+        str.push('\n');
         for i in 0..9 {
             str.push(match self.marks[i] {
                 Some(m) => m.to_char(),
@@ -180,7 +164,7 @@ fn minimax(board: &Board) -> (usize, i8) {
         _ => return (0, 0),
     };
     for mve in possible {
-        let mut new_board = board.clone();
+        let mut new_board = *board;
         new_board.place(mve);
         match new_board.get_state() {
             State::Turn(_) => {
@@ -231,11 +215,18 @@ impl ChatCommand for TicTacToe {
                                 self.players.insert(ctx.chatter.id.clone(), Board::new());
                             }
                             let board = self.players.get_mut(&ctx.chatter.id).unwrap();
-                            board.place((c.to_digit(10).unwrap() - 1) as usize);
-                            let bot_move = minimax(board).0;
-                            board.place(bot_move);
-                            for row in board.print() {
-                                let _ = api.send_chat_message(row);
+                            if board
+                                .place((c.to_digit(10).unwrap() - 1) as usize)
+                                .is_some()
+                            {
+                                let bot_move = minimax(board).0;
+                                board.place(bot_move);
+                                for row in board.print() {
+                                    let _ = api.send_chat_message(row);
+                                }
+                            }
+                            else {
+                                api.send_chat_message("Invalid move!");
                             }
                         }
                         _ => {
@@ -243,8 +234,9 @@ impl ChatCommand for TicTacToe {
                             return Ok(());
                         }
                     }
+                } else {
+                    let _ = api.send_chat_message(self.help());
                 }
-                let _ = api.send_chat_message(self.help());
                 return Ok(());
             }
         }
