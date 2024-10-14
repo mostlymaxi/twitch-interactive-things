@@ -199,6 +199,14 @@ impl ChatCommand for TicTacToe {
         ctx: &twitcheventsub::MessageData,
     ) -> anyhow::Result<()> {
         let arg = ctx.message.text.split_whitespace().nth(1);
+        if let Some(board) = self.players.get(&ctx.chatter.id) {
+            match board.get_state() {
+                State::Turn(_) => {}
+                _ => {
+                    self.players.remove(&ctx.chatter.id);
+                }
+            }
+        }
         match arg {
             None => {
                 let _ = api.send_chat_message(self.help());
@@ -224,9 +232,8 @@ impl ChatCommand for TicTacToe {
                                 for row in board.print() {
                                     let _ = api.send_chat_message(row);
                                 }
-                            }
-                            else {
-                                api.send_chat_message("Invalid move!");
+                            } else {
+                                let _ = api.send_chat_message("Invalid move!");
                             }
                         }
                         _ => {
