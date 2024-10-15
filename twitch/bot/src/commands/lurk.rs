@@ -29,9 +29,11 @@ mod replies {
 
     // make sure to keep the @ which will get replaced with chatter's name and % which will get
     // replaced with chatter's lurking status
-    pub const LURKED_SUCCESSFUL: &str = "@ is lurking %";
+    pub const LURKED_SUCCESSFUL: &str = "@ is %";
 
     pub const LURKER_FAILED: &str = "you're not lurking";
+
+    pub const LURK_ACTIVITY_NO_STATUS: &str = "just lurking";
 }
 
 type Username = String;
@@ -92,20 +94,23 @@ impl ChatCommand for Lurk {
         // match the command: lurk or unlurk
         match command_invoked {
             "!lurk" => {
-                match self.users_lurking.insert(ctx.chatter.name.clone(), None) {
+                match self.users_lurking.get(&ctx.chatter.name) {
                     // called !lurk while not previously lurking and will now start lurking
-                    None => api
-                        .send_chat_message_with_reply(
+                    None => {
+                        self.users_lurking.insert(ctx.chatter.name.clone(), None);
+                        api.send_chat_message_with_reply(
                             replies::LURK_SUCCESSFUL,
                             Some(&ctx.message_id),
                         )
                         .map(reply_ok)
-                        .map_err(reply_err),
+                        .map_err(reply_err)
+                    }
                     // called !lurk while already lurking with or without a status, will continue
                     // lurking
                     Some(_) => api
                         .send_chat_message_with_reply(
-                            &replies::LURK_FAILED.replace("@", &ctx.chatter.name),
+                            &replies::LURK_FAILED
+                                .replace("@", &("@".to_string() + &ctx.chatter.name)),
                             Some(&ctx.message_id),
                         )
                         .map(reply_ok)
@@ -160,13 +165,12 @@ impl ChatCommand for Lurk {
                 }
             }
             "!lurker" => {
-                // join the rest of the words in the message into the username
-                let mut username: String = args.fold(String::new(), |a, b| a + " " + b);
-
-                // if no username provided, assume chatter's name as username
-                if username.is_empty() {
-                    username = ctx.chatter.name.clone();
-                }
+                // use the second word in the message as the username
+                let mut username = args
+                    .next()
+                    .map(|username| username.to_string())
+                    // if no username provided, assume chatter's name as username
+                    .unwrap_or(ctx.chatter.name.clone());
 
                 // if username starts with @, remove it
                 let mut chars = username.chars();
@@ -182,7 +186,9 @@ impl ChatCommand for Lurk {
                                 .replace("@", &("@".to_string() + &username))
                                 .replace(
                                     "%",
-                                    &status.clone().unwrap_or("with no status".to_string()),
+                                    &status
+                                        .clone()
+                                        .unwrap_or(replies::LURK_ACTIVITY_NO_STATUS.to_string()),
                                 ),
                         )
                         .map(reply_ok)
