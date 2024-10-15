@@ -81,8 +81,7 @@ async fn main() {
     let mut commands = commands::init();
     let bot_id = std::env::var("TWITCH_BOT_ID").expect("TWITCH_BOT_ID environment variable set");
 
-    // Allow 1 command every 5 seconds
-    let mut spam_check = SpamCheck::new(1, Duration::from_secs(5));
+    let mut spam_check = SpamCheck::default();
 
     // handle chat commands
     while let Some(msg) = select! {

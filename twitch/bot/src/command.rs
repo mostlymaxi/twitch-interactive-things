@@ -115,13 +115,35 @@ enum ChatNotification {
     InvalidCommand,
     SpamDetected,
     CommandCooldown(String, Duration),
-    CommandSentByBot(String),
+    // CommandSentByBot(String),
     CommandDoesNotExist(String),
     HandleError(String, String),
 }
 
 /// Sends a message to the chat based on the provided context
-fn notify_chat(api: &mut TwitchApiWrapper, ctx: &MessageData, notification: ChatNotification) {
+fn notify_chat(
+    api: &mut TwitchApiWrapper,
+    spam_check: &mut SpamCheck,
+    ctx: &MessageData,
+    notification: ChatNotification,
+) {
+    if let ChatNotification::InvalidCommand
+    | ChatNotification::CommandDoesNotExist(_)
+    | ChatNotification::HandleError(_, _) = notification
+    {
+        if let Some(error_cooldown) = spam_check
+            .error_spam_check
+            .update_error_cooldown(&ctx.chatter.id)
+        {
+            tracing::warn!(
+                "User {} is on error cooldown for another {:.1} seconds",
+                ctx.chatter.id,
+                error_cooldown.as_secs_f32()
+            );
+            return;
+        }
+    }
+
     let msg = match notification {
         ChatNotification::NotACommand => format!("\"{}\" is not a command", ctx.message.text),
         ChatNotification::InvalidCommand => {
@@ -138,7 +160,7 @@ fn notify_chat(api: &mut TwitchApiWrapper, ctx: &MessageData, notification: Chat
             cmd_name,
             duration.as_secs_f32()
         ),
-        ChatNotification::CommandSentByBot(cmd_name) => format!("\"{}\" sent by bot", cmd_name),
+        // ChatNotification::CommandSentByBot(cmd_name) => format!("\"{}\" sent by bot", cmd_name),
         ChatNotification::CommandDoesNotExist(cmd_name) => {
             format!("\"{}\" does not exist", cmd_name)
         }
@@ -178,20 +200,20 @@ pub fn handle_command_if_applicable(
     let (cmd_name, _args) = match Command::parse(&ctx.message.text) {
         CommandParseResult::NotACommand => {
             if let TwitchApiWrapper::Test(_) = api {
-                notify_chat(api, ctx, ChatNotification::NotACommand);
+                notify_chat(api, spam_check, ctx, ChatNotification::NotACommand);
             }
             return;
         }
         CommandParseResult::InvalidCommand => {
-            notify_chat(api, ctx, ChatNotification::InvalidCommand);
+            notify_chat(api, spam_check, ctx, ChatNotification::InvalidCommand);
             return;
         }
         CommandParseResult::ValidCommand(cmd_name, args) => (cmd_name, args),
     };
 
     // Check if the user is sending commands too quickly
-    if spam_check.check_spam(&ctx.chatter.id) {
-        notify_chat(api, ctx, ChatNotification::SpamDetected);
+    if spam_check.check_command_spam(&ctx.chatter.id) {
+        notify_chat(api, spam_check, ctx, ChatNotification::SpamDetected);
         return;
     }
 
@@ -199,6 +221,7 @@ pub fn handle_command_if_applicable(
     let Some(cmd) = cmds.get_mut(&cmd_name) else {
         notify_chat(
             api,
+            spam_check,
             ctx,
             ChatNotification::CommandDoesNotExist(cmd_name.clone()),
         );
@@ -208,9 +231,10 @@ pub fn handle_command_if_applicable(
     let mut cmd = cmd.borrow_mut();
 
     // Check if the command is under cooldown
-    if let Some(duration) = spam_check.check_command_cooldown(&cmd_name, cmd.cooldown()) {
+    if let Some(duration) = spam_check.update_command_cooldown(&cmd_name, cmd.cooldown()) {
         notify_chat(
             api,
+            spam_check,
             ctx,
             ChatNotification::CommandCooldown(cmd_name, duration),
         );
@@ -220,6 +244,7 @@ pub fn handle_command_if_applicable(
     if let Err(err) = cmd.handle(api, ctx) {
         notify_chat(
             api,
+            spam_check,
             ctx,
             ChatNotification::HandleError(cmd_name.clone(), err.to_string()),
         );
