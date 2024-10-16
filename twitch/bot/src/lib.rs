@@ -1,7 +1,7 @@
 pub mod api;
 pub mod command;
 pub mod commands;
-pub mod spamcheck;
+pub mod spam;
 
 // ----------------------------------------------------------------------------
 
@@ -11,7 +11,7 @@ mod test {
         api::{MockTwitchEventSubApi, TwitchApiWrapper},
         command::{handle_command_if_applicable, CommandMap},
         commands::{ping, ChatCommand},
-        spamcheck::SpamCheck,
+        spam::SpamManager,
     };
     use serde_json::json;
     use std::time::Duration;
@@ -69,7 +69,7 @@ mod test {
         let mut api = TwitchApiWrapper::Test(MockTwitchEventSubApi::init_twitch_api());
 
         // Allow 1 command every 3 seconds
-        let mut spam_check = SpamCheck::new(1, Duration::from_secs(3), Default::default());
+        let mut spam_check = SpamManager::new(1, Duration::from_secs(3), 0, Duration::ZERO);
 
         const BOT_ID: &str = "id_bot";
 
