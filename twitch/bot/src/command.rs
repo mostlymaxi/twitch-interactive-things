@@ -1,8 +1,4 @@
-use crate::{
-    api::TwitchApiWrapper,
-    commands::ChatCommand,
-    spam::{SpamManager, SpamStatus},
-};
+use crate::{api::TwitchApiWrapper, commands::ChatCommand, spam::Spam};
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
@@ -127,12 +123,12 @@ enum ChatErrorKind {
 /// Sends a message to the chat on command error
 fn send_chat_err_msg(
     api: &mut TwitchApiWrapper,
-    spam: &mut SpamManager,
+    spam: &mut Spam,
     ctx: &MessageData,
     error: ChatErrorKind,
 ) {
-    // Comment this to disable error spam handling
-    if let SpamStatus::OnCooldown(cooldown) = spam.handle_user_error(&ctx.chatter.id) {
+    // Comment this to disable failed command spam handling
+    if let Some(cooldown) = spam.update_failed_command_cooldown(&ctx.chatter.id) {
         tracing::warn!(
             "User {} is on error cooldown for another {:.1} seconds",
             ctx.chatter.id,
@@ -186,7 +182,7 @@ pub fn handle_command_if_applicable(
     api: &mut TwitchApiWrapper,
     cmds: &mut CommandMap,
     bot_id: &str,
-    spam: &mut SpamManager,
+    spam: &mut Spam,
 ) {
     // Ignore commands sent by the bot itself
     if ctx.chatter.id == bot_id {
@@ -209,7 +205,7 @@ pub fn handle_command_if_applicable(
     };
 
     // Check if the user is sending commands too quickly
-    if let SpamStatus::OnCooldown(_) = spam.check_user_command_spam(&ctx.chatter.id) {
+    if let Some(_) = spam.update_user_cooldown(&ctx.chatter.id) {
         send_chat_err_msg(api, spam, ctx, ChatErrorKind::SpamDetected);
         return;
     }
@@ -228,9 +224,7 @@ pub fn handle_command_if_applicable(
     let mut cmd = cmd.borrow_mut();
 
     // Check if the command is under cooldown
-    if let SpamStatus::OnCooldown(duration) =
-        spam.check_command_cooldown(&ctx.chatter.id, &cmd_name, cmd.cooldown())
-    {
+    if let Some(duration) = spam.update_global_command_cooldown(&cmd_name, &cmd.rate_limit()) {
         send_chat_err_msg(
             api,
             spam,
