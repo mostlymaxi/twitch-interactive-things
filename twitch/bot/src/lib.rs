@@ -11,10 +11,9 @@ mod test {
         api::{MockTwitchEventSubApi, TwitchApiWrapper},
         command::{handle_command_if_applicable, CommandMap},
         commands::{ping, ChatCommand},
-        spam::SpamManager,
+        spam::Spam,
     };
     use serde_json::json;
-    use std::time::Duration;
     use twitcheventsub::MessageData;
 
     /// Simulates a twitch chat message
@@ -68,8 +67,7 @@ mod test {
 
         let mut api = TwitchApiWrapper::Test(MockTwitchEventSubApi::init_twitch_api());
 
-        // Allow 1 command every 3 seconds
-        let mut spam_check = SpamManager::new(1, Duration::from_secs(3), 0, Duration::ZERO);
+        let mut spam = Spam::default();
 
         const BOT_ID: &str = "id_bot";
 
@@ -106,13 +104,7 @@ mod test {
             //     std::thread::sleep(Duration::from_secs(1));
             // }
             let chat_msg: MessageData = serde_json::from_value(chat_msg).unwrap();
-            handle_command_if_applicable(
-                &chat_msg,
-                &mut api,
-                &mut commands,
-                BOT_ID,
-                &mut spam_check,
-            );
+            handle_command_if_applicable(&chat_msg, &mut api, &mut commands, BOT_ID, &mut spam);
         }
     }
 }

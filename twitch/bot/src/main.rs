@@ -11,7 +11,7 @@ use tracing::{debug, error, info, instrument};
 use twitcheventsub::{MessageData, Subscription, TwitchEventSubApi, TwitchKeys};
 
 use command::handle_command_if_applicable;
-use spam::SpamManager;
+use spam::Spam;
 
 // ----------------------------------------------------------------------------
 
@@ -81,7 +81,7 @@ async fn main() {
     let mut commands = commands::init();
     let bot_id = std::env::var("TWITCH_BOT_ID").expect("TWITCH_BOT_ID environment variable set");
 
-    let mut spam_manager = SpamManager::default();
+    let mut spam = Spam::default();
 
     // handle chat commands
     while let Some(msg) = select! {
@@ -94,12 +94,6 @@ async fn main() {
             continue;
         };
 
-        handle_command_if_applicable(
-            &chat_msg,
-            &mut api,
-            &mut commands,
-            &bot_id,
-            &mut spam_manager,
-        );
+        handle_command_if_applicable(&chat_msg, &mut api, &mut commands, &bot_id, &mut spam);
     }
 }

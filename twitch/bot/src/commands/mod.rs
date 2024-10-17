@@ -34,6 +34,7 @@ pub mod youtube;
 
 use crate::api::TwitchApiWrapper;
 use crate::command::CommandMap;
+use crate::spam::RateLimit;
 use anyhow::Result;
 use std::time::Duration;
 use twitcheventsub::MessageData;
@@ -51,8 +52,8 @@ pub trait ChatCommand: 'static {
     where
         Self: Sized;
 
-    fn cooldown(&self) -> Duration {
-        Duration::from_millis(DEFAULT_CMD_COOLDOWN_MS)
+    fn rate_limit(&self) -> RateLimit {
+        RateLimit::new(1, Duration::from_millis(DEFAULT_CMD_COOLDOWN_MS))
     }
 
     fn handle(&mut self, api: &mut TwitchApiWrapper, ctx: &MessageData) -> Result<()>;

@@ -1,577 +1,258 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-type CooldownDuration = Duration;
-type MaxErrorCount = usize;
-type CommandThreshold = usize;
+// ----------------------------------------------------------------------------
+
+#[derive(Clone, Copy)]
+pub struct RateLimit {
+    limit: usize,
+    duration: Duration,
+}
+
+impl RateLimit {
+    pub const fn new(limit: usize, duration: Duration) -> Self {
+        Self { limit, duration }
+    }
+}
 
 // ----------------------------------------------------------------------------
-pub enum SpamStatus {
-    Allowed,
-    OnCooldown(Duration),
+
+struct Cooldown {
+    attempt_count: usize,
+    last_update: Option<Instant>,
 }
 
-// ----------------------------------------------------------------------------
-struct UserErrorState {
-    error_count: usize,
-    cooldown_start: Option<Instant>,
-}
-
-// Error handling and error spam management
-pub struct ErrorSpamManager {
-    max_errors: MaxErrorCount,
-    cooldown_duration: CooldownDuration,
-    user_errors: HashMap<String, UserErrorState>,
-}
-
-impl ErrorSpamManager {
-    pub fn new(max_errors: MaxErrorCount, cooldown_duration: CooldownDuration) -> Self {
+impl Cooldown {
+    fn new() -> Self {
         Self {
-            max_errors,
-            cooldown_duration,
-            user_errors: HashMap::new(),
+            attempt_count: 0,
+            last_update: None,
         }
     }
 
-    /// Check if the user is under error cooldown and update their error count if not
-    pub fn handle_user_error(&mut self, user_id: &str) -> SpamStatus {
-        if self.max_errors == 0 {
-            return SpamStatus::OnCooldown(self.cooldown_duration);
+    /// Returns the remaining cooldown duration if the rate limit is exceeded
+    fn update(&mut self, rate_limit: &RateLimit) -> Option<Duration> {
+        if rate_limit.limit == 0 {
+            // If the limit is 0, cooldown always applies
+            return Some(rate_limit.duration);
         }
 
         let now = Instant::now();
-        let user_state = self
-            .user_errors
-            .entry(user_id.into())
-            .or_insert(UserErrorState {
-                error_count: 0,
-                cooldown_start: None,
-            });
+        let elapsed = self
+            .last_update
+            .map_or(Duration::ZERO, |last| now.duration_since(last));
 
-        if let Some(start) = user_state.cooldown_start {
-            let elapsed = now.duration_since(start);
-            if elapsed < self.cooldown_duration {
-                return SpamStatus::OnCooldown(self.cooldown_duration - elapsed);
+        if elapsed > rate_limit.duration {
+            // Reset attempt count if the cooldown expired
+            self.attempt_count = 1;
+        } else {
+            // If the rate limit has been hit, return the remaining cooldown time
+            if self.attempt_count >= rate_limit.limit {
+                return Some(rate_limit.duration - elapsed);
             }
-            // Reset after cooldown
-            user_state.error_count = 0;
-            user_state.cooldown_start = None;
+            self.attempt_count += 1;
         }
 
-        user_state.error_count += 1;
-        if user_state.error_count > self.max_errors {
-            user_state.cooldown_start = Some(now);
-            return SpamStatus::OnCooldown(self.cooldown_duration);
-        }
-
-        SpamStatus::Allowed
+        self.last_update = Some(now);
+        None
     }
 }
 
 // ----------------------------------------------------------------------------
-struct UserCommandState {
-    command_count: usize,
-    last_command_time: Instant,
+
+struct CooldownTracker<K> {
+    rate_limit: RateLimit,
+    cooldowns: HashMap<K, Cooldown>,
 }
 
-// General command spam management
-pub struct CommandSpamManager {
-    max_commands: CommandThreshold,
-    time_window: CooldownDuration,
-    user_command_data: HashMap<String, UserCommandState>,
-}
-
-impl CommandSpamManager {
-    pub fn new(max_commands: CommandThreshold, time_window: CooldownDuration) -> Self {
+impl<K: Eq + std::hash::Hash> CooldownTracker<K> {
+    fn new(rate_limit: RateLimit) -> Self {
         Self {
-            max_commands,
-            time_window,
-            user_command_data: HashMap::new(),
+            rate_limit,
+            cooldowns: HashMap::new(),
         }
     }
 
-    /// Check if the user is spamming commands
-    pub fn check_command_spam(&mut self, user_id: &str) -> SpamStatus {
-        if self.max_commands == 0 {
-            return SpamStatus::OnCooldown(self.time_window);
-        }
-
-        let now = Instant::now();
-        let user_state = self
-            .user_command_data
-            .entry(user_id.into())
-            .or_insert(UserCommandState {
-                command_count: 0,
-                last_command_time: now,
-            });
-
-        if now.duration_since(user_state.last_command_time) > self.time_window {
-            // Reset after window expiration
-            user_state.command_count = 0;
-            user_state.last_command_time = now;
-            return SpamStatus::Allowed;
-        }
-
-        user_state.command_count += 1;
-        if user_state.command_count > self.max_commands {
-            return SpamStatus::OnCooldown(self.time_window);
-        }
-
-        user_state.last_command_time = now;
-        SpamStatus::Allowed
+    fn get_and<R>(&mut self, key: K, f: impl FnOnce(&RateLimit, &mut Cooldown) -> R) -> R {
+        let cooldown = self.cooldowns.entry(key).or_insert(Cooldown::new());
+        f(&self.rate_limit, cooldown)
     }
 }
 
 // ----------------------------------------------------------------------------
-// Handles per-user, per-command cooldowns
-pub struct CooldownManager {
-    command_cooldowns: HashMap<(String, String), Instant>,
+
+pub struct Spam {
+    /// Rate limiting per-user for any command
+    user_limiter: CooldownTracker<String>,
+    /// Rate limiting per-command for all users
+    global_command_limiter: CooldownTracker<String>,
+    /// Rate limiting per-user for failed command error messages of any command
+    failed_command_limiter: CooldownTracker<String>,
 }
 
-impl CooldownManager {
-    pub fn new() -> Self {
-        Self {
-            command_cooldowns: HashMap::new(),
-        }
-    }
-
-    /// Check and update the cooldown for a specific command of a user
-    pub fn check_and_update_cooldown(
-        &mut self,
-        user_id: &str,
-        command_name: &str,
-        cooldown_duration: CooldownDuration,
-    ) -> SpamStatus {
-        let now = Instant::now();
-        let key = (user_id.to_string(), command_name.to_string());
-
-        if let Some(last_executed) = self.command_cooldowns.get(&key) {
-            let elapsed = now.duration_since(*last_executed);
-            if elapsed < cooldown_duration {
-                return SpamStatus::OnCooldown(cooldown_duration - elapsed);
-            }
-        }
-        // Cooldown is over, update the cooldown for this user and command
-        self.command_cooldowns.insert(key, now);
-        SpamStatus::Allowed
-    }
-}
-
-// ----------------------------------------------------------------------------
-// Centralized spam manager struct
-pub struct SpamManager {
-    command_spam_manager: CommandSpamManager,
-    error_spam_manager: ErrorSpamManager,
-    cooldown_manager: CooldownManager,
-}
-
-impl SpamManager {
+impl Spam {
     pub fn new(
-        command_threshold: CommandThreshold,
-        command_time_window: CooldownDuration,
-        max_errors: MaxErrorCount,
-        error_cooldown_duration: CooldownDuration,
+        user_limit: RateLimit,
+        global_command_limit: RateLimit,
+        failed_command_limit: RateLimit,
     ) -> Self {
         Self {
-            command_spam_manager: CommandSpamManager::new(command_threshold, command_time_window),
-            error_spam_manager: ErrorSpamManager::new(max_errors, error_cooldown_duration),
-            cooldown_manager: CooldownManager::new(),
+            user_limiter: CooldownTracker::new(user_limit),
+            global_command_limiter: CooldownTracker::new(global_command_limit),
+            failed_command_limiter: CooldownTracker::new(failed_command_limit),
         }
     }
 
-    /// Check if a user is spamming commands
-    pub fn check_user_command_spam(&mut self, user_id: &str) -> SpamStatus {
-        self.command_spam_manager.check_command_spam(user_id)
+    /// Returns the remaining cooldown for the given user if applicable
+    /// (Checks if the command is being used by THE USER too quickly)
+    pub fn update_user_cooldown(&mut self, user_id: &str) -> Option<Duration> {
+        self.user_limiter
+            .get_and(user_id.into(), |rate_limit, cooldown| {
+                cooldown.update(rate_limit)
+            })
     }
 
-    /// Handle an error and check if a user is spamming errors
-    pub fn handle_user_error(&mut self, user_id: &str) -> SpamStatus {
-        self.error_spam_manager.handle_user_error(user_id)
-    }
-
-    /// Check if a command is under cooldown
-    pub fn check_command_cooldown(
+    /// Returns the remaining cooldown for the given command if applicable
+    /// (Checks if the command is being used by ANY USER too quickly)
+    pub fn update_global_command_cooldown(
         &mut self,
-        user_id: &str,
         command_name: &str,
-        cooldown_duration: CooldownDuration,
-    ) -> SpamStatus {
-        self.cooldown_manager
-            .check_and_update_cooldown(user_id, command_name, cooldown_duration)
+        rate_limit: &RateLimit,
+    ) -> Option<Duration> {
+        self.global_command_limiter
+            .get_and(command_name.into(), |_, cooldown| {
+                cooldown.update(rate_limit)
+            })
+    }
+
+    /// Returns the remaining cooldown of the failed command for the given user if applicable
+    /// (Checks if the failed command message is being encountered by THE USER too quickly)
+    pub fn update_failed_command_cooldown(&mut self, user_id: &str) -> Option<Duration> {
+        self.failed_command_limiter
+            .get_and(user_id.into(), |rate_limit, cooldown| {
+                cooldown.update(rate_limit)
+            })
     }
 }
 
-impl Default for SpamManager {
+impl Default for Spam {
     fn default() -> Self {
-        // 1 command in 3 seconds, 2 failed commands in 30 seconds
-        Self::new(1, Duration::from_secs(3), 2, Duration::from_secs(30))
+        Self::new(
+            // max any 1 bot command per-user every 5 seconds
+            RateLimit::new(1, Duration::from_secs(5)),
+            // max any 1 bot command by any user every 5 seconds
+            // use any sensible defaults, will be overridden by the user provided value
+            RateLimit::new(1, Duration::from_secs(5)),
+            // max any 2 failed command messages in chat, per-user, every 30 seconds
+            RateLimit::new(2, Duration::from_secs(30)),
+        )
     }
 }
 
 // ----------------------------------------------------------------------------
+
 #[cfg(test)]
-mod tests {
-    use super::{CommandSpamManager, CooldownManager, ErrorSpamManager, SpamStatus};
-    use std::thread;
+mod test {
+    use super::{RateLimit, Spam};
+    use std::thread::sleep;
     use std::time::Duration;
 
-    const SPAM_THRESHOLD: usize = 1;
-    const SPAM_COOLDOWN: Duration = Duration::from_millis(50);
-    const ERR_SPAM_THRESHOLD: usize = 1;
-    const ERR_SPAM_COOLDOWN: Duration = Duration::from_millis(100);
+    const USER_RATE_LIMIT: RateLimit = RateLimit::new(3, Duration::from_millis(50));
+    const GLOBAL_COMMAND_RATE_LIMIT: RateLimit = USER_RATE_LIMIT;
+    const FAILED_COMMAND_RATE_LIMIT: RateLimit = RateLimit::new(2, Duration::from_millis(100));
 
-    const USER0: &str = "user0";
-    const USER1: &str = "user1";
-    const CMD0: &str = "command0";
-    const CMD1: &str = "command1";
+    const USER_A: &str = "user_a";
+    const USER_B: &str = "user_b";
+    const CMD_A: &str = "cmd_a";
 
-    #[test]
-    fn test_command_cooldown() {
-        let mut cm = CooldownManager::new();
+    /// Helper function to execute cooldown behavior for a rate limit
+    fn test_cooldown(
+        rate_limit: &RateLimit,
+        mut cooldown_update: impl FnMut() -> Option<Duration>,
+    ) {
+        // Reset cooldown
+        sleep(rate_limit.duration);
 
-        // Initial command execution should be allowed (no cooldown)
-        assert!(matches!(
-            cm.check_and_update_cooldown(USER0, CMD0, SPAM_COOLDOWN),
-            SpamStatus::Allowed
-        ));
-
-        // Repeated command execution should hit the cooldown
-        assert!(matches!(
-            cm.check_and_update_cooldown(USER0, CMD0, SPAM_COOLDOWN),
-            SpamStatus::OnCooldown(_)
-        ));
-
-        // Wait for the cooldown to expire
-        thread::sleep(SPAM_COOLDOWN);
-
-        // Command should be allowed again after the cooldown period
-        assert!(matches!(
-            cm.check_and_update_cooldown(USER0, CMD0, SPAM_COOLDOWN),
-            SpamStatus::Allowed
-        ));
-    }
-
-    #[test]
-    fn test_command_spam() {
-        let mut csm = CommandSpamManager::new(SPAM_THRESHOLD, SPAM_COOLDOWN);
-
-        match SPAM_THRESHOLD {
-            0 => {
-                // For a threshold of 0, any command should immediately trigger cooldown
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-
-                // Subsequent commands should still be under cooldown
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-            }
-            1 => {
-                // For a threshold of 1, the first command should be allowed
-                assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-
-                // The next command should trigger spam detection
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-
-                // Wait for the cooldown to expire
-                thread::sleep(SPAM_COOLDOWN);
-
-                // After cooldown, commands should be allowed again
-                assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-            }
-            _ => {
-                // For thresholds greater than 1
-                // Should not trigger spam detection until threshold is reached
-                for _ in 0..SPAM_THRESHOLD {
-                    assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-                }
-
-                // Exceeding the threshold should trigger detection
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-
-                // Wait for the cooldown to expire
-                thread::sleep(SPAM_COOLDOWN);
-
-                // Commands should be allowed again after the cooldown period
-                assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-            }
+        // Ensure the action is allowed for the number of attempts equal to the rate limit
+        for i in 0..rate_limit.limit {
+            assert!(
+                cooldown_update().is_none(),
+                "Expected no cooldown on attempt {}, but cooldown was returned",
+                i + 1
+            );
         }
-    }
 
-    #[test]
-    fn test_failed_command_spam() {
-        let mut esm = ErrorSpamManager::new(ERR_SPAM_THRESHOLD, ERR_SPAM_COOLDOWN);
+        // Ensure cooldown triggers on the next attempt after the limit
+        let remaining_cooldown = cooldown_update();
+        assert!(
+            remaining_cooldown.is_some(),
+            "Expected cooldown after hitting the rate limit, but none was returned"
+        );
 
-        match ERR_SPAM_THRESHOLD {
-            0 => {
-                // For a threshold of 0, any error should immediately trigger cooldown
-                assert!(matches!(
-                    esm.handle_user_error(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
+        // Ensure the cooldown period works correctly by checking remaining time
+        assert!(
+            remaining_cooldown.unwrap() <= rate_limit.duration,
+            "Cooldown should be less than or equal to the rate limit duration"
+        );
 
-                // Subsequent error calls should still be under cooldown
-                assert!(matches!(
-                    esm.handle_user_error(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-            }
-            1 => {
-                // For a threshold of 1, the first error should be allowed
-                assert!(matches!(esm.handle_user_error(USER0), SpamStatus::Allowed));
+        // Sleep for the cooldown duration
+        sleep(rate_limit.duration);
 
-                // The next error should trigger cooldown
-                assert!(matches!(
-                    esm.handle_user_error(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-
-                // Further commands should still be under cooldown
-                assert!(matches!(
-                    esm.handle_user_error(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-
-                // Wait for the cooldown to expire
-                thread::sleep(ERR_SPAM_COOLDOWN);
-
-                // After the cooldown, commands should be allowed again
-                assert!(matches!(esm.handle_user_error(USER0), SpamStatus::Allowed));
-            }
-            _ => {
-                // For thresholds greater than 1
-                // Should not trigger cooldown until threshold is reached
-                for _ in 0..ERR_SPAM_THRESHOLD {
-                    assert!(matches!(esm.handle_user_error(USER0), SpamStatus::Allowed));
-                }
-
-                // After exceeding the threshold, it should trigger a cooldown
-                assert!(matches!(
-                    esm.handle_user_error(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-
-                // Further commands should still be under cooldown
-                assert!(matches!(
-                    esm.handle_user_error(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-
-                // Wait for the cooldown to expire
-                thread::sleep(ERR_SPAM_COOLDOWN);
-
-                // After the cooldown, commands should be allowed again
-                assert!(matches!(esm.handle_user_error(USER0), SpamStatus::Allowed));
-            }
+        // Ensure cooldown has expired and actions can resume
+        for i in 0..rate_limit.limit {
+            assert!(
+                cooldown_update().is_none(),
+                "Expected no cooldown after reset, but cooldown was returned on attempt {}",
+                i + 1
+            );
         }
+
+        // Ensure cooldown triggers again after hitting the limit
+        assert!(
+            cooldown_update().is_some(),
+            "Expected cooldown to trigger again after hitting rate limit"
+        );
     }
 
     #[test]
-    fn test_failed_command_spam_with_zero_threshold() {
-        let mut esm = ErrorSpamManager::new(0, ERR_SPAM_COOLDOWN);
+    fn test_user_rate_limiter() {
+        let mut spam = Spam::new(
+            USER_RATE_LIMIT,
+            GLOBAL_COMMAND_RATE_LIMIT,
+            FAILED_COMMAND_RATE_LIMIT,
+        );
 
-        // Immediately trigger cooldown on the first error
-        assert!(matches!(
-            esm.handle_user_error(USER0),
-            SpamStatus::OnCooldown(_)
-        ));
-
-        // Subsequent error calls should still be under cooldown
-        assert!(matches!(
-            esm.handle_user_error(USER0),
-            SpamStatus::OnCooldown(_)
-        ));
-
-        // Wait for the cooldown to expire
-        thread::sleep(ERR_SPAM_COOLDOWN);
-
-        // After the cooldown, errors should still be under cooldown since threshold is 0
-        assert!(matches!(
-            esm.handle_user_error(USER0),
-            SpamStatus::OnCooldown(_)
-        ));
+        // Test for USER_A
+        test_cooldown(&USER_RATE_LIMIT, || spam.update_user_cooldown(USER_A));
+        // Test for USER_B, ensure independent user limits
+        test_cooldown(&USER_RATE_LIMIT, || spam.update_user_cooldown(USER_B));
+        // Re-test USER_A to ensure state is maintained between tests
+        test_cooldown(&USER_RATE_LIMIT, || spam.update_user_cooldown(USER_A));
     }
 
     #[test]
-    fn test_cooldown_expiry_and_reset() {
-        let mut csm = CommandSpamManager::new(SPAM_THRESHOLD, SPAM_COOLDOWN);
-
-        match SPAM_THRESHOLD {
-            0 => {
-                // For a threshold of 0, any command should immediately trigger cooldown
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-
-                // Subsequent commands should still be under cooldown
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-            }
-            1 => {
-                // For a threshold of 1, the first command should be allowed
-                assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-
-                // The next command should trigger spam detection
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-
-                // Wait for the cooldown to expire
-                thread::sleep(SPAM_COOLDOWN);
-
-                // After cooldown, commands should be allowed again
-                assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-
-                // Ensure count is reset and spam detection starts fresh
-                assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-
-                // Next command should trigger cooldown again
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-            }
-            _ => {
-                // For thresholds greater than 1
-                // Trigger cooldown
-                for _ in 0..SPAM_THRESHOLD {
-                    assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-                }
-
-                // Wait for the cooldown to expire
-                thread::sleep(SPAM_COOLDOWN);
-
-                // Ensure the user is allowed to issue commands again
-                assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-
-                // Ensure count is reset and spam detection starts fresh
-                for _ in 0..SPAM_THRESHOLD {
-                    assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-                }
-
-                // Next command should trigger cooldown again
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-            }
-        }
+    fn test_global_command_rate_limiter() {
+        let mut spam = Spam::new(
+            USER_RATE_LIMIT,
+            GLOBAL_COMMAND_RATE_LIMIT,
+            FAILED_COMMAND_RATE_LIMIT,
+        );
+        test_cooldown(&GLOBAL_COMMAND_RATE_LIMIT, || {
+            spam.update_global_command_cooldown(CMD_A, &GLOBAL_COMMAND_RATE_LIMIT)
+        });
     }
 
     #[test]
-    fn test_user_command_cooldown() {
-        let mut cm = CooldownManager::new();
+    fn test_zero_limit() {
+        let rate_limit = RateLimit::new(0, Duration::from_millis(50));
+        let mut spam = Spam::new(rate_limit, rate_limit, rate_limit);
 
-        // User 0's command hits cooldown
-        assert!(matches!(
-            cm.check_and_update_cooldown(USER0, CMD0, SPAM_COOLDOWN),
-            SpamStatus::Allowed
-        ));
-        assert!(matches!(
-            cm.check_and_update_cooldown(USER0, CMD0, SPAM_COOLDOWN),
-            SpamStatus::OnCooldown(_)
-        ));
-
-        // User 1 should still be allowed to run the same command
-        assert!(matches!(
-            cm.check_and_update_cooldown(USER1, CMD0, SPAM_COOLDOWN),
-            SpamStatus::Allowed
-        ));
-
-        // User 0 should still be able to run a different command
-        assert!(matches!(
-            cm.check_and_update_cooldown(USER0, CMD1, SPAM_COOLDOWN),
-            SpamStatus::Allowed
-        ));
-    }
-
-    #[test]
-    fn test_multiple_users_command_spam() {
-        let mut csm = CommandSpamManager::new(SPAM_THRESHOLD, SPAM_COOLDOWN);
-
-        // User 0 hits threshold
-        for _ in 0..SPAM_THRESHOLD {
-            assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-        }
-        assert!(matches!(
-            csm.check_command_spam(USER0),
-            SpamStatus::OnCooldown(_)
-        ));
-
-        // User 1 should still be allowed
-        for _ in 0..SPAM_THRESHOLD {
-            assert!(matches!(csm.check_command_spam(USER1), SpamStatus::Allowed));
-        }
-        // User 1 hits their threshold as well
-        assert!(matches!(
-            csm.check_command_spam(USER1),
-            SpamStatus::OnCooldown(_)
-        ));
-    }
-
-    #[test]
-    fn test_rapid_fire_commands_across_time_window() {
-        let mut csm = CommandSpamManager::new(SPAM_THRESHOLD, SPAM_COOLDOWN);
-
-        match SPAM_THRESHOLD {
-            0 => {
-                // For a threshold of 0, any command should immediately trigger cooldown
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-
-                // Subsequent commands should still be under cooldown
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-            }
-            1 => {
-                // For a threshold of 1, the first command should trigger cooldown
-                assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-            }
-            _ => {
-                // For thresholds greater than 1
-                // Issue some commands below the threshold
-                for _ in 0..(SPAM_THRESHOLD - 1) {
-                    assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-                }
-
-                // Wait for the cooldown window to pass
-                thread::sleep(SPAM_COOLDOWN);
-
-                // Commands should reset and start fresh
-                assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-
-                // Fill the spam threshold again
-                for _ in 0..SPAM_THRESHOLD {
-                    assert!(matches!(csm.check_command_spam(USER0), SpamStatus::Allowed));
-                }
-
-                // The next command should trigger spam detection
-                assert!(matches!(
-                    csm.check_command_spam(USER0),
-                    SpamStatus::OnCooldown(_)
-                ));
-            }
+        // With zero limit ensure cooldown is always enforced
+        for _ in 0..5 {
+            assert!(
+                spam.update_user_cooldown(USER_A).is_some(),
+                "Expected cooldown when limit is 0, but got none"
+            )
         }
     }
 }
