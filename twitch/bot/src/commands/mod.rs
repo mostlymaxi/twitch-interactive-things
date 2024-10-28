@@ -29,6 +29,7 @@ pub mod tictactoe;
 pub mod uwu;
 pub mod vods;
 pub mod youtube;
+pub mod js;
 
 // ----------------------------------------------------------------------------
 
@@ -82,6 +83,7 @@ pub fn init() -> CommandMap {
     map.insert(uwu::MostlyUwU::new());
     map.insert(rewrite::MostlyRewrite::new());
     map.insert(tictactoe::TicTacToe::new());
+    map.insert(js::MostlyJs::new());
 
     // help is special
     let mut help = help::MostlyHelp::new();
