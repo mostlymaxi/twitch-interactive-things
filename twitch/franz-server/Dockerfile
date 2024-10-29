@@ -17,4 +17,4 @@ RUN DP_BUILT_EMSG_SIZE=2048 cargo install franz --root /app
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 COPY --from=builder /app/bin/franz /usr/local/bin
-ENTRYPOINT ["/usr/local/bin/franz", "--path", "./data/franz"]
+ENTRYPOINT ["/usr/local/bin/franz", "--path", "./data/franz", "--bind-ip", "127.0.0.1"]
