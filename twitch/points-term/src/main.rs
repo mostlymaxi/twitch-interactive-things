@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use strum::EnumString;
 use tokio::process::{Child, Command};
-use tokio::{select, signal, sync};
+use tokio::{signal, sync};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, EnumString)]
@@ -165,21 +165,15 @@ async fn main() {
     });
 
     let twitter_clone = twitter.clone();
-    tokio::spawn(async move {
-        // pulling all the redeems from twitch
-        let mut c = franz_client::FranzConsumer::new("tits.franz.mostlymaxi.com:8085", "redeem")
-            .await
-            .unwrap();
+    // pulling all the redeems from twitch
+    let mut c =
+        franz_client::Consumer::new("tits.franz.mostlymaxi.com:8085", "redeem", Some(1)).unwrap();
 
-        while let Some(msg) = select! {
-            _ = twitter_clone.cancelled() => None,
-            m = c.recv() => m
-
-        } {
-            // update latest redeem
-            msg_tx.send(msg.ok()).unwrap();
-        }
-    });
+    while let Ok(msg) = c.recv() {
+        // update latest redeem
+        let msg = String::from_utf8(msg);
+        msg_tx.send(msg.ok()).unwrap();
+    }
 
     match signal::ctrl_c().await {
         Ok(()) => {}
