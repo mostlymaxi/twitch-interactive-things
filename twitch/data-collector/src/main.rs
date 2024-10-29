@@ -28,7 +28,7 @@ impl DataCollector {
             .producers
             .get_mut(topic)
             .expect("chat topic exists")
-            .send(msg)
+            .send_unbuffered(msg)
         {
             Err(e) => {
                 tracing::error!(error = %e, msg = %msg);
