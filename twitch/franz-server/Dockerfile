@@ -11,7 +11,7 @@ WORKDIR /app
 # RUN cargo chef cook --release --recipe-path recipe.json
 # # Build application
 FROM chef AS builder
-RUN cargo install franz --root /app
+RUN DP_BUILT_EMSG_SIZE=2048 cargo install franz --root /app
 
 # We do not need the Rust toolchain to run the binary!
 FROM debian:bookworm-slim AS runtime
