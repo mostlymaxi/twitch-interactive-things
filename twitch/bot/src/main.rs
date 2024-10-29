@@ -1,13 +1,11 @@
 #![doc = include_str!("../README.md")]
-use std::time::Duration;
 
 use mostlybot::*;
 
 use api::TwitchApiWrapper;
-use franz_client::FranzConsumer;
-use tokio::{select, signal, time};
+use tokio::signal;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info, instrument};
+use tracing::{error, info, instrument};
 use twitcheventsub::{MessageData, Subscription, TwitchEventSubApi, TwitchKeys};
 
 use command::handle_command_if_applicable;
@@ -38,23 +36,9 @@ fn init_twitch_api() -> TwitchEventSubApi {
 }
 
 #[instrument]
-async fn init_franz_consumer(topic: &str) -> FranzConsumer {
+async fn init_franz_consumer(topic: &str) -> franz_client::Consumer {
     let broker = std::env::var("FRANZ_BROKER").expect("FRANZ_BROKER environment variable set");
-    let mut consumer = FranzConsumer::new(&broker, &topic.to_owned())
-        .await
-        .unwrap();
-
-    loop {
-        if time::timeout(Duration::from_millis(500), consumer.recv())
-            .await
-            .is_err()
-        {
-            debug!("franz consumer caught up on messages");
-            break;
-        }
-    }
-
-    consumer
+    franz_client::Consumer::new(&broker, topic, Some(0)).unwrap()
 }
 
 async fn cancel_on_signal(token: CancellationToken) {
@@ -84,12 +68,8 @@ async fn main() {
     let mut spam = Spam::default();
 
     // handle chat commands
-    while let Some(msg) = select! {
-        _ = cancel_token.cancelled() => None,
-        msg = consumer.recv() => msg
-    } {
-        let Ok(msg) = msg else { continue };
-
+    while let Ok(msg) = consumer.recv() {
+        let msg = String::from_utf8(msg).unwrap();
         let Ok(chat_msg) = serde_json::from_str::<MessageData>(&msg) else {
             continue;
         };
