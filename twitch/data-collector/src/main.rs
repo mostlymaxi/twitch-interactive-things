@@ -1,4 +1,3 @@
-use franz_client::FranzProducer;
 use std::{collections::HashMap, time::Duration};
 use tokio::{select, signal, time};
 use tokio_util::sync::CancellationToken;
@@ -7,7 +6,7 @@ use twitcheventsub::*;
 
 struct DataCollector {
     api: TwitchEventSubApi,
-    producers: HashMap<String, FranzProducer>,
+    producers: HashMap<String, franz_client::Producer>,
     twitter: CancellationToken,
 }
 
@@ -30,7 +29,6 @@ impl DataCollector {
             .get_mut(topic)
             .expect("chat topic exists")
             .send(msg)
-            .await
         {
             Err(e) => {
                 tracing::error!(error = %e, msg = %msg);
@@ -124,13 +122,12 @@ impl DataCollector {
         twitch.build().expect("twitch api client")
     }
 
-    async fn init_franz_producers(topics: Vec<&str>) -> HashMap<String, FranzProducer> {
+    async fn init_franz_producers(topics: Vec<&str>) -> HashMap<String, franz_client::Producer> {
         let mut franz_producers = HashMap::new();
         let broker = std::env::var("FRANZ_BROKER").expect("FRANZ_BROKER environment variable set");
 
         for topic in topics {
-            let p = franz_client::FranzProducer::new(&broker, &topic.to_owned())
-                .await
+            let p = franz_client::Producer::new(&broker, &topic.to_owned())
                 .expect("franz client connection");
 
             franz_producers.insert(topic.to_string(), p);
