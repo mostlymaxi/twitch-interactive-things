@@ -19,42 +19,40 @@ impl RateLimit {
 
 struct Cooldown {
     attempt_count: usize,
-    last_update: Option<Instant>,
+    last_reset: Instant,
 }
 
 impl Cooldown {
     fn new() -> Self {
         Self {
             attempt_count: 0,
-            last_update: None,
+            last_reset: Instant::now(),
         }
     }
 
     /// Returns the remaining cooldown duration if the rate limit is exceeded
     fn update(&mut self, rate_limit: &RateLimit) -> Option<Duration> {
         if rate_limit.limit == 0 {
-            // If the limit is 0, cooldown always applies
-            return Some(rate_limit.duration);
+            // If the limit is 0, no cooldown
+            return None;
         }
 
         let now = Instant::now();
-        let elapsed = self
-            .last_update
-            .map_or(Duration::ZERO, |last| now.duration_since(last));
+        let elapsed = now.duration_since(self.last_reset);
 
-        if elapsed > rate_limit.duration {
+        if elapsed >= rate_limit.duration {
             // Reset attempt count if the cooldown expired
             self.attempt_count = 1;
-        } else {
-            // If the rate limit has been hit, return the remaining cooldown time
-            if self.attempt_count >= rate_limit.limit {
-                return Some(rate_limit.duration - elapsed);
-            }
-            self.attempt_count += 1;
+            self.last_reset = now;
+            return None;
         }
 
-        self.last_update = Some(now);
-        None
+        if self.attempt_count < rate_limit.limit {
+            self.attempt_count += 1;
+            return None;
+        }
+
+        Some(rate_limit.duration - elapsed)
     }
 }
 
@@ -247,11 +245,11 @@ mod test {
         let rate_limit = RateLimit::new(0, Duration::from_millis(50));
         let mut spam = Spam::new(rate_limit, rate_limit, rate_limit);
 
-        // With zero limit ensure cooldown is always enforced
+        // No cooldown with zero limit
         for _ in 0..5 {
             assert!(
-                spam.update_user_cooldown(USER_A).is_some(),
-                "Expected cooldown when limit is 0, but got none"
+                spam.update_user_cooldown(USER_A).is_none(),
+                "Expected no cooldown when limit is 0, but got some"
             )
         }
     }
