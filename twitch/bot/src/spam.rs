@@ -16,6 +16,10 @@ impl RateLimit {
             duration,
         }
     }
+
+    fn is_unlimited(&self) -> bool {
+        self.max_attempts == 0 || self.duration == Duration::ZERO
+    }
 }
 
 struct UsageState {
@@ -48,8 +52,8 @@ impl<K: Eq + std::hash::Hash> RateLimiter<K> {
     /// Enforces the rate limit for a key, returning the remaining cooldown if the limit is exceeded
     fn enforce_limit(&mut self, key: K, custom_limit: Option<&RateLimit>) -> Option<Duration> {
         let limit = custom_limit.unwrap_or(&self.default_limit);
-        // no cooldown if no attempt limit, allow all attempts
-        if limit.max_attempts == 0 {
+        // no cooldown if no limit, allow all attempts
+        if limit.is_unlimited() {
             return None;
         }
 
@@ -137,114 +141,124 @@ impl Default for Spam {
 
 #[cfg(test)]
 mod test {
-    use super::{RateLimit, Spam};
-    use std::thread::sleep;
-    use std::time::Duration;
+    use super::{RateLimit, RateLimiter};
+    use std::time::{Duration, Instant};
 
-    const USER_RATE_LIMIT: RateLimit = RateLimit::new(3, Duration::from_millis(50));
-    const GLOBAL_COMMAND_RATE_LIMIT: RateLimit = USER_RATE_LIMIT;
-    const FAILED_COMMAND_RATE_LIMIT: RateLimit = RateLimit::new(2, Duration::from_millis(100));
+    const USER1: &str = "user1";
+    const USER2: &str = "user2";
 
-    const USER_A: &str = "user_a";
-    const USER_B: &str = "user_b";
-    const CMD_A: &str = "cmd_a";
+    /// Tests cooldown behavior, cooldown resets, and respects rate limit config
+    fn test_rate_limiter<'a>(
+        limiter: &mut RateLimiter<&'a str>,
+        key: &'a str,
+        custom_limit: Option<&RateLimit>,
+    ) {
+        let limit = custom_limit.unwrap_or(&limiter.default_limit).clone();
+        let mut enforce_limit = || limiter.enforce_limit(key, custom_limit);
 
-    /// Helper function to execute cooldown behavior for a rate limit
-    fn test_cooldown(limit: &RateLimit, mut cooldown_update: impl FnMut() -> Option<Duration>) {
-        // Reset cooldown
-        sleep(limit.duration);
+        // Expire any previous cooldown before testing
+        std::thread::sleep(limit.duration);
 
-        // Ensure the action is allowed for the number of attempts equal to the rate limit
+        // Stage 1: Ensure actions are allowed up to `max_attempts`
         for i in 0..limit.max_attempts {
             assert!(
-                cooldown_update().is_none(),
-                "Expected no cooldown on attempt {}, but cooldown was returned",
+                enforce_limit().is_none(),
+                "Failure in Stage 1 - Attempt {}: Expected no cooldown, but cooldown was returned",
                 i + 1
             );
         }
 
-        // Ensure cooldown triggers on the next attempt after the limit
-        let remaining_cooldown = cooldown_update();
-        assert!(
-            remaining_cooldown.is_some(),
-            "Expected cooldown after hitting the rate limit, but none was returned"
-        );
+        // Stage 2: Verify cooldown triggers once attempts exceed the limit
+        let remaining_cooldown = enforce_limit();
+        if limit.is_unlimited() {
+            assert!(
+                remaining_cooldown.is_none(),
+                "Failure in Stage 2 - Expected no cooldown for an unlimited limit, but cooldown was returned"
+            );
+        } else {
+            assert!(
+                remaining_cooldown.is_some(),
+                "Failure in Stage 2 - Expected cooldown after reaching limit, but no cooldown was returned"
+            );
 
-        // Ensure the cooldown period works correctly by checking remaining time
-        assert!(
-            remaining_cooldown.unwrap() <= limit.duration,
-            "Cooldown should be less than or equal to the rate limit duration"
-        );
+            let cooldown_time = remaining_cooldown.unwrap();
+            assert!(
+                cooldown_time <= limit.duration,
+                "Failure in Stage 2 - Expected cooldown <= limit duration, but got {:?}",
+                cooldown_time
+            );
+        }
 
-        // Sleep for the cooldown duration
-        sleep(limit.duration);
+        // Stage 3: Wait for cooldown to expire and verify actions can resume
+        let start = Instant::now();
+        while start.elapsed() < limit.duration {}
 
-        // Ensure cooldown has expired and actions can resume
         for i in 0..limit.max_attempts {
             assert!(
-                cooldown_update().is_none(),
-                "Expected no cooldown after reset, but cooldown was returned on attempt {}",
+                enforce_limit().is_none(),
+                "Failure in Stage 3 - After cooldown reset, expected no cooldown, but cooldown was returned on attempt {}",
                 i + 1
             );
         }
 
-        // Ensure cooldown triggers again after hitting the limit
-        assert!(
-            cooldown_update().is_some(),
-            "Expected cooldown to trigger again after hitting rate limit"
-        );
+        // Stage 4: Ensure cooldown triggers again after hitting the limit post-reset
+        let post_reset_cooldown = enforce_limit();
+        if limit.is_unlimited() {
+            assert!(
+                post_reset_cooldown.is_none(),
+                "Failure in Stage 4 - Expected no cooldown again for an unlimited limit, but cooldown was returned"
+            );
+        } else {
+            assert!(
+                post_reset_cooldown.is_some(),
+                "Failure in Stage 4 - Expected cooldown to trigger after hitting rate limit post-reset, but no cooldown was returned"
+            );
+        }
+    }
+
+    fn get_test_limits() -> Vec<RateLimit> {
+        vec![
+            RateLimit::new(3, Duration::from_millis(100)),
+            RateLimit::new(2, Duration::from_millis(100)),
+            RateLimit::new(1, Duration::from_millis(100)),
+            RateLimit::new(0, Duration::from_millis(100)),
+            RateLimit::new(0, Duration::ZERO),
+            RateLimit::new(1, Duration::ZERO),
+            RateLimit::new(2, Duration::ZERO),
+            RateLimit::new(3, Duration::ZERO),
+            RateLimit::new(69, Duration::from_millis(1)),
+        ]
     }
 
     #[test]
-    fn test_user_rate_limiter() {
-        let mut spam = Spam::new(
-            USER_RATE_LIMIT,
-            GLOBAL_COMMAND_RATE_LIMIT,
-            FAILED_COMMAND_RATE_LIMIT,
-        );
+    fn test_rate_limiter_with_various_limits() {
+        for (index, limit) in get_test_limits().into_iter().enumerate() {
+            let mut limiter = RateLimiter::new(limit);
 
-        // Test for USER_A
-        test_cooldown(&USER_RATE_LIMIT, || {
-            spam.check_user_command_cooldown(&USER_A.into())
-        });
-        // Test for USER_B, ensure independent user limits
-        test_cooldown(&USER_RATE_LIMIT, || {
-            spam.check_user_command_cooldown(&USER_B.into())
-        });
-        // Re-test USER_A to ensure state is maintained between tests
-        test_cooldown(&USER_RATE_LIMIT, || {
-            spam.check_user_command_cooldown(&USER_A.into())
-        });
+            println!("Testing limit configuration #{}: {:?}", index + 1, limit);
+
+            // Test with multiple users and multiple invocations to ensure rate limiting applies across different cases
+            test_rate_limiter(&mut limiter, USER1, None);
+            test_rate_limiter(&mut limiter, USER2, None);
+            test_rate_limiter(&mut limiter, USER1, None);
+
+            test_rate_limiter(&mut limiter, USER1, None);
+            test_rate_limiter(&mut limiter, USER2, None);
+            test_rate_limiter(&mut limiter, USER2, None);
+        }
     }
 
-    #[test]
-    fn test_global_command_rate_limiter() {
-        let mut spam = Spam::new(
-            USER_RATE_LIMIT,
-            GLOBAL_COMMAND_RATE_LIMIT,
-            FAILED_COMMAND_RATE_LIMIT,
-        );
-        test_cooldown(&GLOBAL_COMMAND_RATE_LIMIT, || {
-            spam.check_global_command_cooldown(&CMD_A.into(), Some(&GLOBAL_COMMAND_RATE_LIMIT))
-        });
-    }
+    // #[test]
+    // fn test_unlimited_limit_behavior() {
+    //     let limit = RateLimit::new(0, Duration::ZERO);
+    //     let mut limiter = RateLimiter::new(limit);
+    //     assert!(limit.is_unlimited(), "Limit should be unlimited");
 
-    #[test]
-    fn test_zero_limit() {
-        let test_zero = |limit| {
-            let mut spam = Spam::new(limit, limit, limit);
-            // No cooldown with zero limit
-            for _ in 0..5 {
-                assert!(
-                    spam.check_user_command_cooldown(&USER_A.into()).is_none(),
-                    "Expected no cooldown when limit is 0, but got some"
-                )
-            }
-        };
-
-        test_zero(RateLimit::new(0, Duration::from_millis(100)));
-        test_zero(RateLimit::new(1, Duration::ZERO));
-        test_zero(RateLimit::new(2, Duration::ZERO));
-        test_zero(RateLimit::new(0, Duration::ZERO));
-    }
+    //     for _ in 0..10 {
+    //         assert!(
+    //             limiter.enforce_limit(USER1, None).is_none(),
+    //             "Expected no cooldown for unlimited limit"
+    //         );
+    //     }
+    // }
 }
