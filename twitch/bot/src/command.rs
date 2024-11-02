@@ -128,7 +128,7 @@ fn send_chat_err_msg(
     error: ChatErrorKind,
 ) {
     // Comment this to disable failed command spam handling
-    if let Some(cooldown) = spam.update_failed_command_cooldown(&ctx.chatter.id) {
+    if let Some(cooldown) = spam.check_failed_command_cooldown(&ctx.chatter.id) {
         tracing::warn!(
             "User {} is on error cooldown for another {:.1} seconds",
             ctx.chatter.id,
@@ -205,7 +205,7 @@ pub fn handle_command_if_applicable(
     };
 
     // Check if the user is sending commands too quickly
-    if let Some(_) = spam.update_user_cooldown(&ctx.chatter.id) {
+    if let Some(_) = spam.check_user_command_cooldown(&ctx.chatter.id) {
         send_chat_err_msg(api, spam, ctx, ChatErrorKind::SpamDetected);
         return;
     }
@@ -224,7 +224,7 @@ pub fn handle_command_if_applicable(
     let mut cmd = cmd.borrow_mut();
 
     // Check if the command is under cooldown
-    if let Some(duration) = spam.update_global_command_cooldown(&cmd_name, &cmd.rate_limit()) {
+    if let Some(duration) = spam.check_global_command_cooldown(&cmd_name, Some(&cmd.rate_limit())) {
         send_chat_err_msg(
             api,
             spam,
