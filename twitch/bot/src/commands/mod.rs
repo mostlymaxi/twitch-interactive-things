@@ -25,6 +25,7 @@ pub mod ping;
 pub mod pong;
 pub mod progress;
 pub mod rewrite;
+pub mod status;
 pub mod tictactoe;
 pub mod uwu;
 pub mod vods;
@@ -82,6 +83,7 @@ pub fn init() -> CommandMap {
     map.insert(bot_time::BotTime::new());
     map.insert(uwu::MostlyUwU::new());
     map.insert(rewrite::MostlyRewrite::new());
+    map.insert(status::MostlyStatus::new());
     map.insert(tictactoe::TicTacToe::new());
     map.insert(js::MostlyJs::new());
 
