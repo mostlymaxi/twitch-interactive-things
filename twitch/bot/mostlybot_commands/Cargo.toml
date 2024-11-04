@@ -1,0 +1,14 @@
+[package]
+name = "mostlybot_commands"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+tracing = { workspace = true }
+twitcheventsub = { workspace = true }
+mostlybot_api = { workspace = true }
+serde_json = { workspace = true }
+
+serde = { version = "1.0.214", default-features = false }
+rand = { version = "0.8.5", default-features = false }

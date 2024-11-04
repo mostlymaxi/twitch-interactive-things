@@ -1,0 +1,28 @@
+[package]
+name = "mostlybot"
+description = "mostlybot is the twitch bot that I use for my stream on twitch"
+version = "0.3.0"
+edition = "2021"
+repository = "https://github.com/mostlymaxi/twitch-interactive-things/tree/main/twitch/bot"
+documentation = "https://docs.rs/mostlybot"
+authors = ["Maxi Saparov"]
+keywords = ["twitch", "bot"]
+license = "MIT"
+
+[dependencies]
+twitcheventsub = { workspace = true }
+mostlybot_api = { workspace = true }
+mostlybot_commands = { workspace = true }
+serde_json = { workspace = true }
+
+franz-client = { version = "0.7.2", default-features = false }
+tokio = { version = "1.41", default-features = false, features = [
+  "macros",
+  "rt-multi-thread",
+  "signal",
+] }
+tokio-util = { version = "0.7.12", default-features = false }
+tracing = { version = "0.1.40", default-features = false }
+tracing-subscriber = { version = "0.3.18", default-features = false, features = [
+  "fmt",
+] }

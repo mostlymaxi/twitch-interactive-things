@@ -9,10 +9,10 @@ The easiest way to contribute is by adding a command to the bot! But any and all
 
 Creating a command takes a few simple steps:
 1. make a fork of the main branch of this repo
-2. create a module (file) at ```twitch/bot/src/commands/<command_name>.rs```
-3. add this module to [src/commands/mod.rs](src/commands/mod.rs) (more details at top of file)
-4. create a struct for your command and implement the ```ChatCommand``` trait (see [ping.rs](src/commands/ping.rs) for a simple example)
+2. create a module (file) at ```mostlybot_commands/src/<command_name>.rs```
+3. add this module to [mostlybot_commands/src/lib.rs](mostlybot_commands/src/lib.rs) (more details at top of file)
+4. create a struct for your command and implement the ```ChatCommand``` trait (see [ping.rs](mostlybot_commands/src/ping.rs) for a simple example)
 5. document. document. document. your goal is to CONVINCE me to add this command, don't be lazy on communication
 
 
-#### You can use the existing [template](src/commands/template.rs) to get started!
+#### You can use the existing [template](mostlybot_commands/src/template.rs) to get started!
