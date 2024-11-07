@@ -1,6 +1,6 @@
 //! Play Tic Tac Toe with a computer because you don't have any REAL friends!
 //!
-//! usage (!tictactoe/!ttt) (reset/1..=9)
+//! usage (!tictactoe/!ttt) (print/reset/1..=9)
 //!
 //! author: lunispang
 
@@ -187,7 +187,7 @@ impl ChatCommand for TicTacToe {
         }
     }
     fn help(&self) -> String {
-        "usage: !tictactoe/!ttt (1-9/reset)".to_owned()
+        "usage: !tictactoe/!ttt (1-9/reset/print)".to_owned()
     }
     fn names() -> Vec<String> {
         vec!["tictactoe".to_owned(), "ttt".to_owned()]
@@ -214,6 +214,15 @@ impl ChatCommand for TicTacToe {
             Some("reset") => {
                 self.players.remove(&ctx.chatter.id);
             }
+            Some("print") => {
+                if !self.players.contains_key(&ctx.chatter.id) {
+                    self.players.insert(ctx.chatter.id.clone(), Board::new());
+                }
+                let board = self.players.get_mut(&ctx.chatter.id).unwrap();
+                for row in board.print() {
+                    let _ = api.send_chat_message(row);
+                }
+            }
             _ => {
                 if let Some(arg) = arg {
                     match arg.chars().next() {
@@ -233,9 +242,6 @@ impl ChatCommand for TicTacToe {
                                 }
                             } else {
                                 let _ = api.send_chat_message("Invalid move!");
-                                for row in board.print() {
-                                    let _ = api.send_chat_message(row);
-                                }
                             }
                         }
                         _ => {
