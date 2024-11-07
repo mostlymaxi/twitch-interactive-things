@@ -234,6 +234,9 @@ impl ChatCommand for TicTacToe {
                                 }
                             } else {
                                 let _ = api.send_chat_message("Invalid move!");
+                                for row in board.print() {
+                                    let _ = api.send_chat_message(row);
+                                }
                             }
                         }
                         _ => {
